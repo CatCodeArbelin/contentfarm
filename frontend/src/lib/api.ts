@@ -104,6 +104,8 @@ export type NewsEvent = {
   status: ApiStatus;
   raw_item_ids: number[];
   score: number;
+  risk_level: string | null;
+  source_url: string | null;
   reasons: Record<string, unknown>[];
   created_at: string;
 };
