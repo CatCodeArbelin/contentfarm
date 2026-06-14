@@ -53,8 +53,13 @@ def start_generation(payload: GenerationRequest, db: Session = Depends(get_db)) 
 
 @generate_router.post("/generate", response_model=GenerateResponse, status_code=status.HTTP_201_CREATED, summary="Generate variants for a news event")
 def generate(payload: GenerateRequest, db: Session = Depends(get_db)) -> GenerateResponse:
+    return generate_by_news_event_id(payload.news_event_id, db)
+
+
+@generate_router.post("/generate/{news_event_id}", response_model=GenerateResponse, status_code=status.HTTP_201_CREATED, summary="Generate variants for a news event")
+def generate_by_news_event_id(news_event_id: int, db: Session = Depends(get_db)) -> GenerateResponse:
     try:
-        variants = generate_variants_for_news_event(db, payload.news_event_id)
+        variants = generate_variants_for_news_event(db, news_event_id)
     except ValueError as exc:
         db.rollback()
         message = str(exc)
