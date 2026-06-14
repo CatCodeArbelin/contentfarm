@@ -1,6 +1,78 @@
 # contentfarm
 
-Contentfarm is a local automation stack for collecting source content, generating AI-assisted drafts, and approving or publishing them through a Telegram/n8n workflow.
+Contentfarm is a local automation stack for collecting source content, deduplicating raw items into news events, generating AI-assisted variants, and approving, publishing, or exporting them.
+
+## MVP v0.1 local flow
+
+The MVP v0.1 flow is designed for Windows 11 with Docker Desktop running the application stack and Ollama running natively on the Windows host.
+
+### 1. Install prerequisites
+
+1. Install Docker Desktop for Windows and enable the WSL2 backend.
+2. Install Ollama natively in Windows and make sure it is running.
+3. Pull the recommended local model:
+
+   ```bash
+   ollama pull qwen2.5:14b
+   ```
+
+   To use another model instead, pull it with `ollama pull <model>` and set `OLLAMA_MODEL=<model>` in `.env`.
+
+### 2. Configure the environment
+
+Copy the example environment file and edit the local copy:
+
+```bash
+cp .env.example .env
+```
+
+At minimum, fill the Telegram values used by the MVP publish path:
+
+- `TELEGRAM_BOT_TOKEN` — your Telegram bot token.
+- `TELEGRAM_CHANNEL_ID` — the target channel or chat ID used when publishing to Telegram.
+
+Also replace any other placeholder secrets before using the stack beyond local testing, including database, Redis, app, webhook, and n8n secrets.
+
+Keep `OLLAMA_BASE_URL=http://host.docker.internal:11434` when Ollama is installed on Windows. That is how the Dockerized app reaches the Ollama API running on the Windows host.
+
+### 3. Start the stack and migrate the database
+
+Build and start the local services:
+
+```bash
+docker compose up -d --build
+```
+
+Apply database migrations:
+
+```bash
+docker compose exec app alembic upgrade head
+```
+
+Check the app health endpoint:
+
+```text
+http://localhost:8000/health
+```
+
+Open the interactive API docs:
+
+```text
+http://localhost:8000/docs
+```
+
+### 4. Walk through the MVP in the API docs
+
+Use <http://localhost:8000/docs> to run the local workflow end to end:
+
+1. **Create a source** with `POST /api/v1/sources`.
+2. **Create a raw item** with `POST /api/v1/raw-items`, using the source ID from the previous step.
+3. **Deduplicate pending raw items** with `POST /api/v1/news-events/deduplicate`; this creates or updates a news event.
+4. **Generate a variant** with `POST /api/v1/generation`, using the news event ID and a strategy such as `telegram_short`.
+5. **Approve the variant** with `POST /api/v1/variants/{variant_id}/approve`.
+6. **Publish or export the approved variant**:
+   - Publish to Telegram with `POST /api/v1/publications/{variant_id}/publish-telegram`.
+   - Export markdown or HTML with `POST /api/v1/publications/{variant_id}/export`.
 
 ## Services
 
@@ -10,37 +82,21 @@ The root `docker-compose.yml` starts the following services:
 - `postgres` — PostgreSQL 16 database for application and n8n persistence.
 - `redis` — Redis 7 instance for queues, cache, and background coordination.
 - `n8n` — workflow automation UI and webhook runtime.
-- `ollama` — optional local LLM runtime used for draft generation when explicitly enabled with the `ollama` profile.
 - `adminer` — optional database UI enabled with the `adminer` profile.
+- `ollama` — optional Docker-managed LLM runtime enabled only with the `ollama` profile. For MVP v0.1 on Windows 11, prefer native Windows Ollama instead.
 
-Persistent Docker volumes are defined for PostgreSQL, Redis, n8n, and optional Ollama data.
+Persistent Docker volumes are defined for PostgreSQL, Redis, n8n, and optional Docker-managed Ollama data.
 
-## Configuration
+Useful local URLs:
 
-Create a local environment file from the example before starting the stack:
+- FastAPI app: <http://localhost:8000>
+- API health check: <http://localhost:8000/health>
+- API docs: <http://localhost:8000/docs>
+- n8n: <http://localhost:5678>
+- Host Ollama API: <http://localhost:11434>
+- Adminer, when profile is enabled: <http://localhost:8080>
 
-```bash
-cp .env.example .env
-```
-
-Then edit `.env` and replace all placeholder secrets, especially:
-
-- `POSTGRES_PASSWORD`
-- `REDIS_PASSWORD`
-- `APP_SECRET_KEY`
-- `WEBHOOK_API_TOKEN`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_WEBHOOK_SECRET`
-- `N8N_ENCRYPTION_KEY`
-- `N8N_BASIC_AUTH_PASSWORD`
-
-## Start the stack
-
-Start the core services in the background:
-
-```bash
-docker compose up -d
-```
+## Optional profiles
 
 Start the stack with Adminer enabled:
 
@@ -48,18 +104,20 @@ Start the stack with Adminer enabled:
 docker compose --profile adminer up -d
 ```
 
-Check service health and container status:
+### Optional Docker-managed Ollama profile
+
+The compose file includes an optional `ollama` service for users who explicitly want Docker-managed Ollama instead of the recommended native Windows Ollama setup. Start it with the `ollama` profile and pull a model into that service:
 
 ```bash
-docker compose ps
+docker compose --profile ollama up -d ollama
+docker compose exec ollama ollama pull "${OLLAMA_MODEL:-qwen2.5:14b}"
 ```
 
-Useful local URLs:
+If you use this optional profile, point the app at the Docker service instead of the Windows host by setting this in `.env` before starting the app:
 
-- FastAPI app: <http://localhost:8000>
-- n8n: <http://localhost:5678>
-- Ollama API, when running separately on the host or with the optional profile: <http://localhost:11434>
-- Adminer, when profile is enabled: <http://localhost:8080>
+```env
+OLLAMA_BASE_URL=http://ollama:11434
+```
 
 ## Database migrations
 
@@ -95,49 +153,22 @@ If the collector is exposed as a FastAPI or Typer command in your implementation
 docker compose exec app python -m contentfarm.cli collect
 ```
 
-## Ollama setup and draft generation
+## Draft generation from the CLI
 
-On Windows 11, install and start Ollama separately in Windows rather than running it inside Docker. The application defaults to connecting to the host Ollama API at `http://host.docker.internal:11434`; keep `OLLAMA_BASE_URL` set to that value unless you intentionally run Ollama elsewhere.
-
-Pull the default recommended model before generating drafts:
-
-```bash
-ollama pull qwen2.5:14b
-```
-
-If your machine does not have enough memory for that model or you prefer another model, choose a different Ollama model, pull it with `ollama pull <model>`, and set `OLLAMA_MODEL=<model>` in `.env`.
-
-Generate drafts with the configured Ollama model:
+The MVP flow can be completed from the API docs, but the application can also generate drafts from the configured Ollama model with the CLI when available:
 
 ```bash
 docker compose exec app python -m contentfarm.cli generate-drafts --model "$OLLAMA_MODEL"
 ```
 
-The compose file still includes an optional `ollama` service for users who explicitly want Docker-managed Ollama. Start it with the `ollama` profile and then pull a model into that service:
-
-```bash
-docker compose --profile ollama up -d ollama
-docker compose exec ollama ollama pull "${OLLAMA_MODEL:-qwen2.5:14b}"
-```
-
 ## Approve and publish flow
 
-1. The collector stores normalized source items in PostgreSQL and queues work in Redis.
-2. Draft generation reads queued items, calls Ollama, and saves generated drafts with a `pending_review` status.
-3. n8n receives draft-ready events from the app or polls the app API.
-4. n8n sends each draft to the configured Telegram chat for review.
-5. An editor approves, rejects, or requests changes from Telegram.
-6. Approved drafts move to `approved`; rejected drafts stay archived with reviewer feedback.
-7. The publish workflow posts approved drafts to the target channel or CMS and marks them as `published`.
-
-Typical review command examples:
-
-```text
-/approve <draft_id>
-/reject <draft_id> <reason>
-/rewrite <draft_id> <instructions>
-/publish <draft_id>
-```
+1. Sources describe where content comes from.
+2. Raw items store collected or manually entered source material.
+3. Deduplication groups raw items into news events.
+4. Generation calls Ollama and saves variants with review status.
+5. An editor approves, rejects, or updates variants.
+6. Approved variants can be published to Telegram or exported as markdown or HTML.
 
 ## Stop the stack
 
