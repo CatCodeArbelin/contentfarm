@@ -21,6 +21,8 @@ class ApprovalRequest(BaseModel):
 class PublishRequest(BaseModel):
     target_type: str = Field(pattern="^(variant|publication)$")
     target_id: int
+    platform: str | None = Field(default=None, examples=["telegram", "dzen", "vc.ru", "habr", "dtf", "pikabu", "max"])
+    export_format: str | None = Field(default=None, pattern="^(markdown|html)$")
     publication_url: HttpUrl | None = None
 
 
@@ -33,6 +35,9 @@ class PublicationRead(BaseModel):
     topic: str | None = None
     status: Status
     url: HttpUrl | None = None
+    message_id: str | None = None
+    export_path: str | None = None
+    error: str | None = None
     created_at: datetime
     scheduled_at: datetime | None = None
     published_at: datetime | None = None

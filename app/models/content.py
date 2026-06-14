@@ -192,6 +192,9 @@ class Publication(TimestampStatusMixin, Base):
 
     variant_id: Mapped[int] = mapped_column(ForeignKey("generated_variants.id", ondelete="CASCADE"), nullable=False, index=True)
     publication_url: Mapped[str | None] = mapped_column(String(2048))
+    message_id: Mapped[str | None] = mapped_column(String(128))
+    export_path: Mapped[str | None] = mapped_column(String(2048))
+    error: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(String(2048))
     url_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
