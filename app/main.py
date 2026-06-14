@@ -30,6 +30,8 @@ def create_app() -> FastAPI:
     app.include_router(raw_items.router, prefix="/api/v1")
     app.include_router(news_events.router, prefix="/api/v1")
     app.include_router(generation.router, prefix="/api/v1")
+    app.include_router(generation.generate_router)
+    app.include_router(generation.generate_router, prefix="/api/v1")
     app.include_router(variants.router, prefix="/api/v1")
     app.include_router(publications.router, prefix="/api/v1")
     app.include_router(moderation.router, prefix="/api/v1")
