@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.common import Status
 
@@ -8,7 +8,10 @@ from app.schemas.common import Status
 class RawItemBase(BaseModel):
     source_id: int
     title: str = Field(min_length=1, max_length=500)
-    url: HttpUrl
+    url: HttpUrl = Field(
+        validation_alias=AliasChoices("url", "source_url"),
+        serialization_alias="url",
+    )
     content: str
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None

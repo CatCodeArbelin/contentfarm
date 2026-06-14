@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.common import Status
 
@@ -35,7 +35,11 @@ class PublicationRead(BaseModel):
     language: str | None = None
     topic: str | None = None
     status: Status
-    url: HttpUrl | None = None
+    url: HttpUrl | None = Field(
+        default=None,
+        validation_alias=AliasChoices("url", "publication_url"),
+        serialization_alias="url",
+    )
     message_id: str | None = None
     export_path: str | None = None
     error: str | None = None
