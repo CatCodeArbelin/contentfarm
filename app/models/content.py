@@ -61,6 +61,7 @@ class NewsEvent(TimestampStatusMixin, Base):
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
     event_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON)
+    reasons: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
 
     source_links: Mapped[list["SourceLink"]] = relationship(back_populates="news_event")
     variants: Mapped[list["GeneratedVariant"]] = relationship(back_populates="news_event")

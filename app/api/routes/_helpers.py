@@ -11,6 +11,10 @@ OffsetQuery = Annotated[int, Query(ge=0, description="Number of records to skip.
 StatusQuery = Annotated[Status | None, Query(description="Filter by workflow status.")]
 TextQuery = Annotated[str | None, Query(description="Optional exact-match filter.")]
 CreatedAtQuery = Annotated[datetime | None, Query(description="Return records created at or after this timestamp.")]
+MinScoreQuery = Annotated[float | None, Query(ge=0, description="Return records with score greater than or equal to this value.")]
+MaxScoreQuery = Annotated[float | None, Query(ge=0, description="Return records with score less than or equal to this value.")]
+SortByQuery = Annotated[str, Query(pattern="^(created_at|score)$", description="Field used to sort records.")]
+SortOrderQuery = Annotated[str, Query(pattern="^(asc|desc)$", description="Sort direction.")]
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -27,7 +31,14 @@ def apply_filters(items: list[T], filters: ListFilters, limit: int, offset: int)
                 return False
         if filters.created_at is not None and getattr(item, "created_at", filters.created_at) < filters.created_at:
             return False
+        score = getattr(item, "score", None)
+        if filters.min_score is not None and (score is None or score < filters.min_score):
+            return False
+        if filters.max_score is not None and (score is None or score > filters.max_score):
+            return False
         return True
 
     filtered = [item for item in items if keep(item)]
+    reverse = filters.sort_order == "desc"
+    filtered.sort(key=lambda item: getattr(item, filters.sort_by, None) or 0, reverse=reverse)
     return filtered[offset : offset + limit], len(filtered)

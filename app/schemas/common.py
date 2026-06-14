@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,10 @@ class ListFilters(BaseModel):
     platform: str | None = Field(default=None, description="Filter by source or publishing platform.")
     strategy: str | None = Field(default=None, description="Filter by generation or publication strategy.")
     created_at: datetime | None = Field(default=None, description="Return records created at or after this timestamp.")
+    min_score: float | None = Field(default=None, ge=0, description="Return records with score greater than or equal to this value.")
+    max_score: float | None = Field(default=None, ge=0, description="Return records with score less than or equal to this value.")
+    sort_by: Literal["created_at", "score"] = Field(default="created_at", description="Field used to sort records.")
+    sort_order: Literal["asc", "desc"] = Field(default="desc", description="Sort direction.")
 
 
 class PaginationParams(BaseModel):

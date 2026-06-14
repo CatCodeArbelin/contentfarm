@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.content import NewsEvent, RawItem, SourceLink
+from app.services.ranking import apply_ranking
 
 _WORD_RE = re.compile(r"[\w]+", re.UNICODE)
 _DEFAULT_STOPWORDS = frozenset(
@@ -103,6 +104,7 @@ def deduplicate_raw_item(
 
     source_link = _get_or_create_link(session, matched_event, raw_item, reasons)
     _merge_event_metadata(matched_event, raw_item, reasons)
+    apply_ranking(matched_event)
     _merge_reasons(source_link, reasons)
     session.flush()
     if commit:
