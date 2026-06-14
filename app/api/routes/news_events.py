@@ -45,13 +45,35 @@ def get_news_event(news_event_id: int, db: Session = Depends(get_db)) -> NewsEve
 
 
 @router.post("/deduplicate", status_code=status.HTTP_200_OK, summary="Deduplicate pending raw items")
-def deduplicate_news_events(limit: LimitQuery = 100, db: Session = Depends(get_db)) -> dict[str, object]:
-    results = deduplicate_pending_raw_items(db, limit=limit, commit=True)
+def deduplicate_news_events(limit: LimitQuery = 100, session: Session = Depends(get_db)) -> dict[str, object]:
+    results = deduplicate_pending_raw_items(session, limit=limit, commit=True)
     return {
         "processed": len(results),
         "created": sum(1 for result in results if result.created),
-        "matched": sum(1 for result in results if not result.created),
+        "linked": sum(
+            1
+            for result in results
+            if any(reason.get("type") == "source_link_created" for reason in result.reasons)
+        ),
+        "already_linked": sum(
+            1
+            for result in results
+            if any(reason.get("type") in {"already_linked", "duplicate_url_hash_already_linked"} for reason in result.reasons)
+        ),
         "news_event_ids": [result.news_event.id for result in results],
+        "source_link_ids": [result.source_link.id for result in results],
+        "items": [
+            {
+                "news_event_id": result.news_event.id,
+                "source_link_id": result.source_link.id,
+                "created": result.created,
+                "already_linked": any(
+                    reason.get("type") in {"already_linked", "duplicate_url_hash_already_linked"}
+                    for reason in result.reasons
+                ),
+            }
+            for result in results
+        ],
     }
 
 

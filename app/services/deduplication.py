@@ -25,7 +25,7 @@ _DEFAULT_STOPWORDS = frozenset(
 @dataclass(frozen=True)
 class DeduplicationConfig:
     title_similarity_threshold: float = 0.86
-    publication_window: timedelta = timedelta(hours=48)
+    publication_window: timedelta = timedelta(hours=24)
     candidate_limit: int = 100
     same_domain_bonus: float = 0.04
     cross_domain_min_similarity: float = 0.92
@@ -89,6 +89,13 @@ def deduplicate_raw_item(
             session.commit()
         return DeduplicationResult(existing_link.news_event, existing_link, created=False, reasons=reasons)
 
+    duplicate_url_link = _find_existing_url_hash_link(session, raw_item, reasons)
+    if duplicate_url_link is not None:
+        _merge_reasons(duplicate_url_link, reasons)
+        if commit:
+            session.commit()
+        return DeduplicationResult(duplicate_url_link.news_event, duplicate_url_link, created=False, reasons=reasons)
+
     matched_event = _find_by_url_hash(session, raw_item, reasons)
     if matched_event is None:
         matched_event = _find_by_title(session, raw_item, config, reasons)
@@ -118,6 +125,28 @@ def _find_existing_link(session: Session, raw_item: RawItem) -> SourceLink | Non
     return session.scalar(select(SourceLink).options(selectinload(SourceLink.news_event)).where(SourceLink.raw_item_id == raw_item.id))
 
 
+def _find_existing_url_hash_link(session: Session, raw_item: RawItem, reasons: list[dict[str, Any]]) -> SourceLink | None:
+    if not raw_item.url_hash:
+        return None
+    link = session.scalar(
+        select(SourceLink)
+        .options(selectinload(SourceLink.news_event))
+        .where(SourceLink.url_hash == raw_item.url_hash)
+        .order_by(SourceLink.id.asc())
+        .limit(1)
+    )
+    if link is not None:
+        reasons.append(
+            {
+                "type": "duplicate_url_hash_already_linked",
+                "url_hash": raw_item.url_hash,
+                "source_link_id": link.id,
+                "news_event_id": link.news_event_id,
+            }
+        )
+    return link
+
+
 def _find_by_url_hash(session: Session, raw_item: RawItem, reasons: list[dict[str, Any]]) -> NewsEvent | None:
     if not raw_item.url_hash:
         return None
@@ -135,10 +164,19 @@ def _find_by_url_hash(session: Session, raw_item: RawItem, reasons: list[dict[st
 
 
 def _find_by_title(session: Session, raw_item: RawItem, config: DeduplicationConfig, reasons: list[dict[str, Any]]) -> NewsEvent | None:
-    published_at = raw_item.published_at or datetime.now(timezone.utc)
-    start = published_at - config.publication_window
-    end = published_at + config.publication_window
-    query = select(NewsEvent).order_by(NewsEvent.created_at.desc()).limit(config.candidate_limit)
+    now = datetime.now(timezone.utc)
+    cutoff = now - config.publication_window
+    published_at = _ensure_timezone(raw_item.published_at) if raw_item.published_at else now
+    if published_at < cutoff:
+        reasons.append(
+            {
+                "type": "title_similarity_skipped",
+                "reason": "raw_item_outside_publication_window",
+                "publication_window_hours": config.publication_window.total_seconds() / 3600,
+            }
+        )
+        return None
+    query = select(NewsEvent).where(NewsEvent.created_at >= cutoff).order_by(NewsEvent.created_at.desc()).limit(config.candidate_limit)
     if raw_item.topic:
         query = query.where(NewsEvent.topic == raw_item.topic)
     candidates = session.scalars(query).all()
@@ -148,7 +186,7 @@ def _find_by_title(session: Session, raw_item: RawItem, config: DeduplicationCon
         event_time = _event_publication_time(event)
         if event_time is not None:
             event_time = _ensure_timezone(event_time)
-        if event_time is not None and not (start <= event_time <= end):
+        if event_time is not None and event_time < cutoff:
             continue
         similarity = title_similarity(raw_item.title, event.title)
         same_domain = raw_domain is not None and raw_domain == source_domain(event.source_url)
