@@ -178,6 +178,8 @@ export type Publication = {
   approved_by: string | null;
 };
 
+type ApiErrorDetailItem = { msg?: string };
+
 export class ApiError extends Error {
   constructor(message: string, public status?: number, public details?: unknown) {
     super(message);
@@ -214,7 +216,7 @@ function toQueryString(params?: Record<string, string | number | boolean | null 
 
 async function readError(response: Response) {
   try {
-    const data = await response.json();
+    const data = (await response.json()) as { detail?: string | ApiErrorDetailItem[] };
     if (typeof data?.detail === "string") return data.detail;
     if (Array.isArray(data?.detail)) return data.detail.map((item) => item?.msg).filter(Boolean).join("; ");
   } catch {
