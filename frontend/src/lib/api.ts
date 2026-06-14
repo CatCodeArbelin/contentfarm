@@ -225,9 +225,15 @@ async function readError(response: Response) {
   return null;
 }
 
+function stripTechnicalDetails(message: string) {
+  const firstLine = message.split(/\r?\n/)[0]?.trim() || apiErrorMessages.unknown;
+  if (/traceback|stack trace|^error:/i.test(firstLine)) return apiErrorMessages.unknown;
+  return firstLine.replace(/^Ошибка API:\s*/i, "").trim() || apiErrorMessages.unknown;
+}
+
 export function getRussianErrorMessage(error: unknown) {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof ApiError) return stripTechnicalDetails(error.message);
+  if (error instanceof Error && error.message) return stripTechnicalDetails(error.message);
   return apiErrorMessages.unknown;
 }
 
