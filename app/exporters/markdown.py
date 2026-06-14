@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-SUPPORTED_PLATFORMS = {"dzen", "vc.ru", "habr", "dtf", "pikabu"}
+SUPPORTED_PLATFORMS = {"telegram", "dzen", "max", "vc", "habr", "dtf", "pikabu"}
 
 
 def slugify(value: str) -> str:

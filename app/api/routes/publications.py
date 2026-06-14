@@ -13,7 +13,7 @@ from app.exporters.markdown import export_markdown
 from app.models.content import GeneratedVariant, Publication
 from app.publishers.telegram import TelegramPublisher
 from app.schemas.common import ListFilters, PaginatedResponse, Status
-from app.schemas.publications import PublicationRead, PublicationRequest, PublishRequest
+from app.schemas.publications import PublicationExportRequest, PublicationRead, PublicationRequest, PublishRequest
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +109,8 @@ def publish_variant_to_telegram(variant_id: int, session: Session = Depends(get_
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Telegram publication failed and failed state could not be saved.") from exc
 
 
-@router.post("/{variant_id}/export", response_model=PublicationRead, summary="Export variant")
-def export_variant(variant_id: int, payload: PublishRequest | None = None, session: Session = Depends(get_db)) -> PublicationRead:
-    variant = _get_approved_variant(session, variant_id)
-    platform = payload.platform if payload and payload.platform else variant.platform
+def _export_approved_variant(session: Session, variant: GeneratedVariant, payload: PublicationExportRequest) -> Publication:
+    platform = payload.platform
     if platform not in EXPORT_PLATFORMS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported export platform: {platform}")
 
@@ -120,8 +118,7 @@ def export_variant(variant_id: int, payload: PublishRequest | None = None, sessi
     session.add(publication)
 
     try:
-        export_format = payload.export_format if payload and payload.export_format else "markdown"
-        exporter = export_html if export_format == "html" else export_markdown
+        exporter = export_html if payload.export_format == "html" else export_markdown
         title = variant.title or (variant.content.splitlines()[0] if variant.content.splitlines() else None)
         publication.export_path = exporter(title=title, content=variant.content, platform=platform)
         publication.status = Status.published.value
@@ -131,11 +128,17 @@ def export_variant(variant_id: int, payload: PublishRequest | None = None, sessi
         return publication
     except Exception as exc:
         session.rollback()
-        logger.exception("Variant export failed: variant_id=%s platform=%s", variant_id, platform)
+        logger.exception("Variant export failed: variant_id=%s platform=%s", variant.id, platform)
         failed = _commit_failed_publication(session, variant, platform=platform, error=str(exc))
         if failed is not None:
             return failed
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Variant export failed and failed state could not be saved.") from exc
+
+
+@router.post("/{variant_id}/export", response_model=PublicationRead, summary="Export variant")
+def export_variant(variant_id: int, payload: PublicationExportRequest, session: Session = Depends(get_db)) -> PublicationRead:
+    variant = _get_approved_variant(session, variant_id)
+    return _export_approved_variant(session, variant, payload)
 
 
 @router.patch("/{item_id}", response_model=PublicationRead, summary="Update publication")
@@ -160,8 +163,9 @@ def publish(payload: PublishRequest, session: Session = Depends(get_db)) -> Publ
     if platform == "telegram":
         return publish_variant_to_telegram(variant.id, session)
     if platform in EXPORT_PLATFORMS:
-        payload.target_type = "variant"
-        payload.target_id = variant.id
-        payload.platform = platform
-        return export_variant(variant.id, payload, session)
+        return _export_approved_variant(
+            session,
+            variant,
+            PublicationExportRequest(platform=platform, format=payload.export_format or "markdown"),
+        )
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported platform: {platform}")

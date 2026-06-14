@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl
 
@@ -21,9 +22,14 @@ class ApprovalRequest(BaseModel):
 class PublishRequest(BaseModel):
     target_type: str = Field(pattern="^(variant|publication)$")
     target_id: int
-    platform: str | None = Field(default=None, examples=["telegram", "dzen", "vc.ru", "habr", "dtf", "pikabu", "max"])
+    platform: str | None = Field(default=None, examples=["telegram", "dzen", "max", "vc", "habr", "dtf", "pikabu"])
     export_format: str | None = Field(default=None, pattern="^(markdown|html)$")
     publication_url: HttpUrl | None = None
+
+
+class PublicationExportRequest(BaseModel):
+    platform: Literal["telegram", "dzen", "max", "vc", "habr", "dtf", "pikabu"]
+    export_format: Literal["markdown", "html"] = Field(default="markdown", alias="format")
 
 
 class PublicationRead(BaseModel):
