@@ -1,0 +1,14 @@
+name: telegram_style
+prompt_type: platform_style
+version: "1.0.0"
+is_active: true
+created_at: "2026-06-14T00:00:00Z"
+language: ru
+platform: telegram
+strategy: platform_adapt
+template: |
+  Адаптируй материал для Telegram: короткие абзацы, ясный хук, без перегруза эмодзи.
+  Тон: информативный и живой.
+
+  Материал:
+  {{ text }}

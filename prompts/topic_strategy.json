@@ -1,0 +1,11 @@
+{
+  "name": "topic_strategy_default",
+  "prompt_type": "topic_strategy",
+  "version": "1.0.0",
+  "is_active": true,
+  "created_at": "2026-06-14T00:00:00Z",
+  "language": "ru",
+  "platform": "generic",
+  "strategy": "summary",
+  "template": "Сформируй стратегию подачи для темы {{ topic }}. Аудитория: {{ audience | default('широкая') }}."
+}

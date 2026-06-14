@@ -1,0 +1,13 @@
+name: output_schema_default
+prompt_type: output_schema
+version: "1.0.0"
+is_active: true
+created_at: "2026-06-14T00:00:00Z"
+language: ru
+platform: generic
+strategy: generic
+template: |
+  Верни результат в формате:
+  title: <короткий заголовок>
+  body: <основной текст>
+  hashtags: <3-5 релевантных тегов>

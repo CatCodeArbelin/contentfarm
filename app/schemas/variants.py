@@ -7,6 +7,8 @@ from app.schemas.common import Status
 
 class VariantBase(BaseModel):
     generation_id: int
+    prompt_id: int | None = None
+    prompt_version: str | None = None
     platform: str = Field(examples=["telegram"])
     strategy: str
     language: str = Field(default="en", min_length=2, max_length=16)

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampStatusMixin
@@ -136,9 +136,15 @@ class Platform(TimestampStatusMixin, Base):
 
 class Prompt(TimestampStatusMixin, Base):
     __tablename__ = "prompts"
-    __table_args__ = (UniqueConstraint("name", "platform", "strategy", name="uq_prompts_name_platform_strategy"),)
+    __table_args__ = (
+        UniqueConstraint("name", "prompt_type", "version", "platform", "strategy", name="uq_prompts_name_type_version_platform_strategy"),
+        Index("ix_prompts_active_lookup", "prompt_type", "platform", "strategy", "is_active"),
+    )
 
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    prompt_type: Mapped[str] = mapped_column(String(64), nullable=False, default="global_humanizer", index=True)
+    version: Mapped[str] = mapped_column(String(64), nullable=False, default="1.0.0", index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
     template: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str | None] = mapped_column(String(2048))
     url_hash: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -149,6 +155,8 @@ class Prompt(TimestampStatusMixin, Base):
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
 
+    variants: Mapped[list["GeneratedVariant"]] = relationship(back_populates="prompt")
+
 
 class GeneratedVariant(TimestampStatusMixin, Base):
     __tablename__ = "generated_variants"
@@ -156,6 +164,7 @@ class GeneratedVariant(TimestampStatusMixin, Base):
 
     news_event_id: Mapped[int] = mapped_column(ForeignKey("news_events.id", ondelete="CASCADE"), nullable=False, index=True)
     prompt_id: Mapped[int | None] = mapped_column(ForeignKey("prompts.id", ondelete="SET NULL"), index=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(64), index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str | None] = mapped_column(String(2048))
     url_hash: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -167,6 +176,7 @@ class GeneratedVariant(TimestampStatusMixin, Base):
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
 
     news_event: Mapped[NewsEvent] = relationship(back_populates="variants")
+    prompt: Mapped[Prompt | None] = relationship(back_populates="variants")
     publications: Mapped[list["Publication"]] = relationship(back_populates="variant")
 
 

@@ -82,18 +82,23 @@ def upgrade() -> None:
     op.create_table("platforms", *common_columns(), sa.Column("name", sa.String(length=64), nullable=False), *domain_columns(platform_nullable=False), sa.UniqueConstraint("name", name="uq_platforms_name"))
     add_common_indexes("platforms")
 
-    op.create_table("prompts", *common_columns(), sa.Column("name", sa.String(length=128), nullable=False), sa.Column("template", sa.Text(), nullable=False), *domain_columns(language_nullable=False, platform_nullable=False, strategy_nullable=False), sa.UniqueConstraint("name", "platform", "strategy", name="uq_prompts_name_platform_strategy"))
+    op.create_table("prompts", *common_columns(), sa.Column("name", sa.String(length=128), nullable=False), sa.Column("prompt_type", sa.String(length=64), nullable=False), sa.Column("version", sa.String(length=64), nullable=False), sa.Column("is_active", sa.Boolean(), nullable=False), sa.Column("template", sa.Text(), nullable=False), *domain_columns(language_nullable=False, platform_nullable=False, strategy_nullable=False), sa.UniqueConstraint("name", "prompt_type", "version", "platform", "strategy", name="uq_prompts_name_type_version_platform_strategy"))
     add_common_indexes("prompts")
+    op.create_index(op.f("ix_prompts_prompt_type"), "prompts", ["prompt_type"], unique=False)
+    op.create_index(op.f("ix_prompts_version"), "prompts", ["version"], unique=False)
+    op.create_index(op.f("ix_prompts_is_active"), "prompts", ["is_active"], unique=False)
+    op.create_index("ix_prompts_active_lookup", "prompts", ["prompt_type", "platform", "strategy", "is_active"], unique=False)
 
     op.create_table("source_links", *common_columns(), sa.Column("news_event_id", sa.Integer(), nullable=False), sa.Column("raw_item_id", sa.Integer(), nullable=False), *domain_columns(), sa.ForeignKeyConstraint(["news_event_id"], ["news_events.id"], ondelete="CASCADE"), sa.ForeignKeyConstraint(["raw_item_id"], ["raw_items.id"], ondelete="CASCADE"), sa.UniqueConstraint("news_event_id", "raw_item_id", name="uq_source_links_event_raw_item"))
     add_common_indexes("source_links")
     op.create_index(op.f("ix_source_links_news_event_id"), "source_links", ["news_event_id"], unique=False)
     op.create_index(op.f("ix_source_links_raw_item_id"), "source_links", ["raw_item_id"], unique=False)
 
-    op.create_table("generated_variants", *common_columns(), sa.Column("news_event_id", sa.Integer(), nullable=False), sa.Column("prompt_id", sa.Integer(), nullable=True), sa.Column("content", sa.Text(), nullable=False), *domain_columns(language_nullable=False, platform_nullable=False, strategy_nullable=False), sa.ForeignKeyConstraint(["news_event_id"], ["news_events.id"], ondelete="CASCADE"), sa.ForeignKeyConstraint(["prompt_id"], ["prompts.id"], ondelete="SET NULL"))
+    op.create_table("generated_variants", *common_columns(), sa.Column("news_event_id", sa.Integer(), nullable=False), sa.Column("prompt_id", sa.Integer(), nullable=True), sa.Column("prompt_version", sa.String(length=64), nullable=True), sa.Column("content", sa.Text(), nullable=False), *domain_columns(language_nullable=False, platform_nullable=False, strategy_nullable=False), sa.ForeignKeyConstraint(["news_event_id"], ["news_events.id"], ondelete="CASCADE"), sa.ForeignKeyConstraint(["prompt_id"], ["prompts.id"], ondelete="SET NULL"))
     add_common_indexes("generated_variants")
     op.create_index(op.f("ix_generated_variants_news_event_id"), "generated_variants", ["news_event_id"], unique=False)
     op.create_index(op.f("ix_generated_variants_prompt_id"), "generated_variants", ["prompt_id"], unique=False)
+    op.create_index(op.f("ix_generated_variants_prompt_version"), "generated_variants", ["prompt_version"], unique=False)
     op.create_index("ix_generated_variants_event_status", "generated_variants", ["news_event_id", "status"], unique=False)
 
     op.create_table("publications", *common_columns(), sa.Column("variant_id", sa.Integer(), nullable=False), sa.Column("publication_url", sa.String(length=2048), nullable=True), *domain_columns(platform_nullable=False, strategy_nullable=False), sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=True), sa.Column("published_at", sa.DateTime(timezone=True), nullable=True), sa.ForeignKeyConstraint(["variant_id"], ["generated_variants.id"], ondelete="CASCADE"))
