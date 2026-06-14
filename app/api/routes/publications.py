@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery, now_utc
@@ -15,6 +15,11 @@ from app.schemas.publications import PublicationRead, PublicationRequest, Publis
 
 router = APIRouter(prefix="/publications", tags=["Publications"])
 publish_router = APIRouter(tags=["Publications"])
+
+
+def ensure_variant_approved(variant: GeneratedVariant) -> None:
+    if variant.status != Status.approved.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Variant must be approved before publishing or exporting.")
 
 
 @router.get("", response_model=PaginatedResponse[PublicationRead], summary="List publications")
@@ -75,6 +80,8 @@ def publish(payload: PublishRequest, db: Session = Depends(get_db)) -> Publicati
         publication = Publication(variant_id=variant.id, platform=payload.platform or variant.platform, strategy=variant.strategy, language=variant.language, topic=variant.topic, status=Status.processing.value, approved_at=variant.approved_at, approved_by=variant.approved_by)
         db.add(publication)
         db.flush()
+
+    ensure_variant_approved(variant)
 
     platform = payload.platform or publication.platform
     content = variant.content

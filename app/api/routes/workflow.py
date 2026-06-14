@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.routes._helpers import now_utc
+from app.api.routes.publications import ensure_variant_approved
 from app.api.routes.db_helpers import commit_or_rollback, get_model_or_404
 from app.db.session import get_db
 from app.models.content import GeneratedVariant, Publication
@@ -15,7 +16,6 @@ from app.schemas.variants import VariantRead
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Publications", "Variants"])
 PublishableTarget = Literal["variant", "publication"]
-_ALLOWED_PUBLISH_STATUSES = {Status.approved.value, Status.scheduled.value}
 
 
 def _get_target(db: Session, target_type: str, target_id: int) -> GeneratedVariant | Publication:
@@ -33,12 +33,18 @@ def approve(payload: ApprovalRequest, db: Session = Depends(get_db)) -> VariantR
     return item
 
 
-@router.post("/publish", response_model=VariantRead | PublicationRead, summary="Publish an approved or scheduled variant/publication")
+@router.post("/publish", response_model=VariantRead | PublicationRead, summary="Publish an approved variant/publication")
 def publish(payload: PublishRequest, db: Session = Depends(get_db)) -> VariantRead | PublicationRead:
     item = _get_target(db, payload.target_type, payload.target_id)
-    if item.status not in _ALLOWED_PUBLISH_STATUSES:
-        logger.warning("Publication attempt rejected because target is not approved: target_type=%s target_id=%s status=%s", payload.target_type, payload.target_id, item.status)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Target must be approved or scheduled before publishing.")
+    variant = item if isinstance(item, GeneratedVariant) else get_model_or_404(db, GeneratedVariant, item.variant_id, "Variant")
+    try:
+        ensure_variant_approved(variant)
+    except HTTPException:
+        logger.warning("Publication attempt rejected because variant is not approved: target_type=%s target_id=%s variant_id=%s status=%s", payload.target_type, payload.target_id, variant.id, variant.status)
+        raise
+    if isinstance(item, Publication) and item.status != Status.approved.value:
+        logger.warning("Publication attempt rejected because publication is not approved: target_id=%s status=%s", payload.target_id, item.status)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Publication must be approved before publishing.")
     item.status = Status.published.value
     item.published_at = now_utc()
     if isinstance(item, Publication) and payload.publication_url is not None:
