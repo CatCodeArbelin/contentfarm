@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import generation, metrics, moderation, news_events, publications, raw_items, sources, variants
+from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants
 
 OPENAPI_TAGS = [
     {"name": "Sources", "description": "Source registry and ingestion configuration."},
@@ -11,6 +11,7 @@ OPENAPI_TAGS = [
     {"name": "Publications", "description": "Publication queue and delivery status."},
     {"name": "Moderation", "description": "Editorial review decisions and audit trail."},
     {"name": "Metrics", "description": "Publication performance metrics."},
+    {"name": "Collectors", "description": "Manual collection jobs for active sources."},
 ]
 
 
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(publications.router, prefix="/api/v1")
     app.include_router(moderation.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
+    app.include_router(collectors.router, prefix="/api/v1")
 
     @app.get("/health", tags=["Health"], summary="Health check")
     def health() -> dict[str, str]:

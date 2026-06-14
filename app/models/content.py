@@ -40,6 +40,7 @@ class RawItem(TimestampStatusMixin, Base):
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     source: Mapped[Source | None] = relationship(back_populates="raw_items")
     event_links: Mapped[list["SourceLink"]] = relationship(back_populates="raw_item")
