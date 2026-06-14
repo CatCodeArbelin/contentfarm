@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import Status
 
@@ -24,5 +24,6 @@ class NewsEventCreate(NewsEventBase):
 
 
 class NewsEventRead(NewsEventBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
