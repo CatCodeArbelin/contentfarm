@@ -43,7 +43,9 @@ Build and start the local services:
 docker compose up -d --build
 ```
 
-Apply database migrations:
+By default, Alembic migrations are applied automatically when the `app` container starts (`AUTO_MIGRATE=true` in `.env`). To disable automatic migrations and run them manually, set `AUTO_MIGRATE=false` in `.env`.
+
+The manual migration command remains useful as an optional/debug command:
 
 ```bash
 docker compose exec app alembic upgrade head
@@ -78,7 +80,7 @@ Use <http://localhost:8000/docs> to run the local workflow end to end:
 
 ## Smoke test
 
-After the stack is running and migrations are applied, run the scripted MVP flow:
+After the stack is running and migrations are applied automatically, run the scripted MVP flow:
 
 ```bash
 chmod +x scripts/smoke.sh
@@ -134,7 +136,9 @@ OLLAMA_BASE_URL=http://ollama:11434
 
 ## Database migrations
 
-Run Alembic migrations after the containers are healthy:
+Alembic migrations run automatically at `app` container startup by default for the local MVP (`AUTO_MIGRATE=true`). To disable this behavior and manage migrations manually, set `AUTO_MIGRATE=false` in `.env`.
+
+Optional/debug manual migration command:
 
 ```bash
 docker compose exec app alembic upgrade head
