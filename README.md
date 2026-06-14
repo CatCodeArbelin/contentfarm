@@ -82,12 +82,20 @@ Use <http://localhost:8000/docs> to run the local workflow end to end:
 
 After the stack is running and migrations are applied automatically, run the scripted MVP flow:
 
+On Windows, prefer the PowerShell smoke test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
+```
+
+On Git Bash, Linux, or WSL, use the Bash smoke test:
+
 ```bash
 chmod +x scripts/smoke.sh
 ./scripts/smoke.sh
 ```
 
-The script uses `curl` and `jq` to create a source, raw item, news event, generated variant, approval, and markdown export. If `jq` is not installed, install it or copy the commented curl commands from `scripts/smoke.sh` and run them manually.
+Both scripts create a source, raw item, news event, generated variant, approval, and markdown export. The Windows `scripts/smoke.ps1` script uses PowerShell `Invoke-RestMethod` and does not require `jq` or Bash. The `scripts/smoke.sh` script is intended for Git Bash, Linux, or WSL and uses `curl` and `jq`; if `jq` is not installed, install it or copy the commented curl commands from `scripts/smoke.sh` and run them manually.
 
 ## Services
 

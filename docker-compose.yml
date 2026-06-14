@@ -16,6 +16,8 @@ services:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./exports:/app/exports
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || curl -fsS http://localhost:8000/healthz || exit 1"]
       interval: 30s

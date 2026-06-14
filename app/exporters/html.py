@@ -3,7 +3,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 
-from app.exporters.markdown import SUPPORTED_PLATFORMS, slugify
+from app.exporters.markdown import SUPPORTED_PLATFORMS, export_filename
 
 
 def render_html(*, title: str | None, content: str, platform: str) -> str:
@@ -18,7 +18,7 @@ def render_html(*, title: str | None, content: str, platform: str) -> str:
 def export_html(*, title: str | None, content: str, platform: str, output_dir: str | Path = "exports") -> str:
     output_root = Path(output_dir) / platform / "html"
     output_root.mkdir(parents=True, exist_ok=True)
-    filename = f"{slugify(title or content[:80])}.html"
+    filename = export_filename(title or content[:80], "html")
     path = output_root / filename
     path.write_text(render_html(title=title, content=content, platform=platform), encoding="utf-8")
     return str(path)
