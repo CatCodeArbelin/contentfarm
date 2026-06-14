@@ -146,7 +146,7 @@ OLLAMA_BASE_URL=http://ollama:11434
 
 ## Frontend
 
-The `frontend/` directory contains the initial Next.js App Router scaffold for the future Contentfarm web interface. It uses TypeScript, Tailwind CSS, and dark mode by default. The current page is intentionally a Russian-language placeholder: it does not connect to real APIs and does not implement a dashboard.
+The `frontend/` directory contains the Next.js App Router interface for Contentfarm. It uses TypeScript, Tailwind CSS, TanStack Query, and dark mode by default. The UI is Russian-language first and includes a dashboard, source/raw item/news event/variant/publication screens, plus `/settings` for checking the configured API base URL, backend health, frontend environment summary, and quick links to FastAPI docs, n8n, and the frontend itself.
 
 Run it through Docker Compose with the rest of the local stack:
 
@@ -161,7 +161,13 @@ npm install
 npm run dev
 ```
 
-Copy `frontend/.env.example` if you need local frontend-specific overrides. The default local URL is <http://localhost:3000>.
+Copy `frontend/.env.example` if you need local frontend-specific overrides. The key public variables are:
+
+- `NEXT_PUBLIC_API_BASE_URL` — backend API base URL used by the browser, default <http://localhost:8000>.
+- `NEXT_PUBLIC_FRONTEND_URL` — public frontend URL shown on `/settings`, default <http://localhost:3000>.
+- `NEXT_PUBLIC_N8N_URL` — n8n URL shown on `/settings`, default <http://localhost:5678>.
+
+The default local frontend URL is <http://localhost:3000>.
 
 ## Database migrations
 
