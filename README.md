@@ -28,6 +28,7 @@ Then edit `.env` and replace all placeholder secrets, especially:
 - `POSTGRES_PASSWORD`
 - `REDIS_PASSWORD`
 - `APP_SECRET_KEY`
+- `WEBHOOK_API_TOKEN`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `N8N_ENCRYPTION_KEY`
@@ -140,3 +141,61 @@ Remove containers and persistent local data volumes:
 ```bash
 docker compose down -v
 ```
+
+## n8n webhook workflow example
+
+The app exposes shared-secret webhook endpoints for n8n at both `/webhooks/*` and `/api/v1/webhooks/*`. Configure n8n HTTP Request nodes with either an `X-Webhook-Token: $WEBHOOK_API_TOKEN` header or an `Authorization: Bearer $WEBHOOK_API_TOKEN` header. The app reads `WEBHOOK_API_TOKEN` first and falls back to `APP_SECRET_KEY` when a dedicated webhook token is not set.
+
+Example RSS-to-publish workflow:
+
+1. **RSS Feed Trigger** — watches a feed and emits each RSS item.
+2. **HTTP Request: store raw item** — `POST http://app:8000/webhooks/raw-item` with JSON like:
+
+   ```json
+   {
+     "source_id": 1,
+     "title": "{{$json.title}}",
+     "url": "{{$json.link}}",
+     "content": "{{$json.contentSnippet || $json.content}}",
+     "language": "en",
+     "topic": "tech",
+     "platform": "telegram",
+     "strategy": "telegram_short",
+     "status": "pending"
+   }
+   ```
+
+3. **HTTP Request: generate draft** — after the item is deduplicated or matched to a news event, call `POST http://app:8000/webhooks/generate`:
+
+   ```json
+   {
+     "news_event_id": 42,
+     "strategy": "telegram_short",
+     "language": "en",
+     "platform": "telegram"
+   }
+   ```
+
+4. **HTTP Request: prepare review notification** — call `POST http://app:8000/webhooks/review-notify` for the generated variant:
+
+   ```json
+   {
+     "target_type": "variant",
+     "target_id": 7,
+     "admin_chat_id": "123456789"
+   }
+   ```
+
+5. **Telegram node: send message** — send the `message` field returned by the previous node to the admin chat with HTML parse mode. The message includes approve, reject, and publish command templates.
+6. **Telegram Trigger / approval branch** — when an editor approves the post, mark the variant or publication approved through the moderation API.
+7. **HTTP Request: publish** — call `POST http://app:8000/webhooks/publish` only after approval:
+
+   ```json
+   {
+     "target_type": "variant",
+     "target_id": 7,
+     "platform": "telegram"
+   }
+   ```
+
+The publish webhook rejects anything that is not in `approved` status with `409 Conflict`, so n8n can safely retry or route non-approved posts back to the review branch.
