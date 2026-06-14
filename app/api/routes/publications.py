@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery, now_utc
@@ -8,10 +11,11 @@ from app.exporters.html import export_html
 from app.exporters.markdown import SUPPORTED_PLATFORMS as EXPORT_PLATFORMS
 from app.exporters.markdown import export_markdown
 from app.models.content import GeneratedVariant, Publication
-from app.publishers.max import MaxPublisher
 from app.publishers.telegram import TelegramPublisher
 from app.schemas.common import ListFilters, PaginatedResponse, Status
 from app.schemas.publications import PublicationRead, PublicationRequest, PublishRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/publications", tags=["Publications"])
 publish_router = APIRouter(tags=["Publications"])
@@ -22,103 +26,142 @@ def ensure_variant_approved(variant: GeneratedVariant) -> None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Variant must be approved before publishing or exporting.")
 
 
+def _get_approved_variant(session: Session, variant_id: int) -> GeneratedVariant:
+    variant = session.get(GeneratedVariant, variant_id)
+    if variant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variant not found")
+    ensure_variant_approved(variant)
+    return variant
+
+
+def _publication_from_variant(variant: GeneratedVariant, *, platform: str, status_value: str) -> Publication:
+    return Publication(
+        variant_id=variant.id,
+        platform=platform,
+        strategy=variant.strategy,
+        language=variant.language,
+        topic=variant.topic,
+        status=status_value,
+        approved_at=variant.approved_at,
+        approved_by=variant.approved_by,
+    )
+
+
+def _commit_failed_publication(session: Session, variant: GeneratedVariant, *, platform: str, error: str) -> Publication | None:
+    try:
+        failed = _publication_from_variant(variant, platform=platform, status_value=Status.failed.value)
+        failed.error = error
+        session.add(failed)
+        session.commit()
+        session.refresh(failed)
+        return failed
+    except SQLAlchemyError:
+        session.rollback()
+        logger.exception("Failed to persist failed publication state: variant_id=%s platform=%s", variant.id, platform)
+        return None
+
+
 @router.get("", response_model=PaginatedResponse[PublicationRead], summary="List publications")
-def list_publications(limit: LimitQuery = 50, offset: OffsetQuery = 0, status: StatusQuery = None, language: TextQuery = None, topic: TextQuery = None, platform: TextQuery = None, strategy: TextQuery = None, created_at: CreatedAtQuery = None, db: Session = Depends(get_db)) -> PaginatedResponse[PublicationRead]:
+def list_publications(limit: LimitQuery = 50, offset: OffsetQuery = 0, status: StatusQuery = None, language: TextQuery = None, topic: TextQuery = None, platform: TextQuery = None, strategy: TextQuery = None, created_at: CreatedAtQuery = None, session: Session = Depends(get_db)) -> PaginatedResponse[PublicationRead]:
     filters = ListFilters(status=status, language=language, topic=topic, platform=platform, strategy=strategy, created_at=created_at)
-    items, total = list_models(db, Publication, filters, limit, offset)
+    items, total = list_models(session, Publication, filters, limit, offset)
     return PaginatedResponse[PublicationRead](items=items, limit=limit, offset=offset, total=total)
 
 
 @router.get("/{item_id}", response_model=PublicationRead, summary="Get publication")
-def get_publication(item_id: int, db: Session = Depends(get_db)) -> PublicationRead:
-    return get_model_or_404(db, Publication, item_id, "Publication")
+def get_publication(item_id: int, session: Session = Depends(get_db)) -> PublicationRead:
+    return get_model_or_404(session, Publication, item_id, "Publication")
 
 
 @router.post("", response_model=PublicationRead, status_code=status.HTTP_202_ACCEPTED, summary="Queue publication")
-def queue_publication(payload: PublicationRequest, db: Session = Depends(get_db)) -> PublicationRead:
-    variant = get_model_or_404(db, GeneratedVariant, payload.variant_id, "Variant")
+def queue_publication(payload: PublicationRequest, session: Session = Depends(get_db)) -> PublicationRead:
+    variant = get_model_or_404(session, GeneratedVariant, payload.variant_id, "Variant")
     item = Publication(variant_id=variant.id, platform=payload.platform, strategy=payload.strategy, language=variant.language, topic=variant.topic, status=Status.scheduled.value if payload.scheduled_at else Status.draft.value, scheduled_at=payload.scheduled_at, approved_at=variant.approved_at, approved_by=variant.approved_by)
-    db.add(item)
-    commit_or_rollback(db)
-    db.refresh(item)
+    session.add(item)
+    commit_or_rollback(session)
+    session.refresh(item)
     return item
 
 
 @router.post("/{variant_id}/publish-telegram", response_model=PublicationRead, summary="Publish variant to Telegram")
-def publish_variant_to_telegram(variant_id: int, db: Session = Depends(get_db)) -> PublicationRead:
-    return publish(PublishRequest(target_type="variant", target_id=variant_id, platform="telegram"), db)
+def publish_variant_to_telegram(variant_id: int, session: Session = Depends(get_db)) -> PublicationRead:
+    variant = _get_approved_variant(session, variant_id)
+    publication = _publication_from_variant(variant, platform="telegram", status_value=Status.processing.value)
+    session.add(publication)
+
+    try:
+        result = TelegramPublisher().publish(variant.content)
+        publication.status = result.status
+        publication.message_id = result.message_id
+        publication.publication_url = result.publication_url
+        publication.error = result.error
+        if result.status == Status.published.value:
+            publication.published_at = now_utc()
+        session.commit()
+        session.refresh(publication)
+        return publication
+    except Exception as exc:
+        session.rollback()
+        logger.exception("Telegram publication failed: variant_id=%s", variant_id)
+        failed = _commit_failed_publication(session, variant, platform="telegram", error=str(exc))
+        if failed is not None:
+            return failed
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Telegram publication failed and failed state could not be saved.") from exc
 
 
 @router.post("/{variant_id}/export", response_model=PublicationRead, summary="Export variant")
-def export_variant(variant_id: int, payload: PublishRequest | None = None, db: Session = Depends(get_db)) -> PublicationRead:
-    variant = get_model_or_404(db, GeneratedVariant, variant_id, "Variant")
-    request = payload or PublishRequest(target_type="variant", target_id=variant_id, platform=variant.platform, export_format="markdown")
-    request.target_type = "variant"
-    request.target_id = variant_id
-    request.platform = request.platform or variant.platform
-    request.export_format = request.export_format or "markdown"
-    return publish(request, db)
+def export_variant(variant_id: int, payload: PublishRequest | None = None, session: Session = Depends(get_db)) -> PublicationRead:
+    variant = _get_approved_variant(session, variant_id)
+    platform = payload.platform if payload and payload.platform else variant.platform
+    if platform not in EXPORT_PLATFORMS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported export platform: {platform}")
+
+    publication = _publication_from_variant(variant, platform=platform, status_value=Status.processing.value)
+    session.add(publication)
+
+    try:
+        export_format = payload.export_format if payload and payload.export_format else "markdown"
+        exporter = export_html if export_format == "html" else export_markdown
+        title = variant.title or (variant.content.splitlines()[0] if variant.content.splitlines() else None)
+        publication.export_path = exporter(title=title, content=variant.content, platform=platform)
+        publication.status = Status.published.value
+        publication.published_at = now_utc()
+        session.commit()
+        session.refresh(publication)
+        return publication
+    except Exception as exc:
+        session.rollback()
+        logger.exception("Variant export failed: variant_id=%s platform=%s", variant_id, platform)
+        failed = _commit_failed_publication(session, variant, platform=platform, error=str(exc))
+        if failed is not None:
+            return failed
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Variant export failed and failed state could not be saved.") from exc
 
 
 @router.patch("/{item_id}", response_model=PublicationRead, summary="Update publication")
-def update_publication(item_id: int, payload: PublicationRequest, db: Session = Depends(get_db)) -> PublicationRead:
-    item = get_model_or_404(db, Publication, item_id, "Publication")
+def update_publication(item_id: int, payload: PublicationRequest, session: Session = Depends(get_db)) -> PublicationRead:
+    item = get_model_or_404(session, Publication, item_id, "Publication")
     for key, value in payload.model_dump(exclude_unset=True, mode="json").items():
         setattr(item, key, value)
-    commit_or_rollback(db)
-    db.refresh(item)
+    commit_or_rollback(session)
+    session.refresh(item)
     return item
 
 
 @publish_router.post("/publish", response_model=PublicationRead, summary="Publish or export content by platform")
-def publish(payload: PublishRequest, db: Session = Depends(get_db)) -> PublicationRead:
+def publish(payload: PublishRequest, session: Session = Depends(get_db)) -> PublicationRead:
+    variant_id = payload.target_id
     if payload.target_type == "publication":
-        publication = get_model_or_404(db, Publication, payload.target_id, "Publication")
-        variant = get_model_or_404(db, GeneratedVariant, publication.variant_id, "Variant")
-    else:
-        variant = get_model_or_404(db, GeneratedVariant, payload.target_id, "Variant")
-        publication = Publication(variant_id=variant.id, platform=payload.platform or variant.platform, strategy=variant.strategy, language=variant.language, topic=variant.topic, status=Status.processing.value, approved_at=variant.approved_at, approved_by=variant.approved_by)
-        db.add(publication)
-        db.flush()
+        existing = get_model_or_404(session, Publication, payload.target_id, "Publication")
+        variant_id = existing.variant_id
 
-    ensure_variant_approved(variant)
-
-    platform = payload.platform or publication.platform
-    content = variant.content
-    result_status = Status.failed
-    message_id = None
-    export_path = None
-    publication_url = str(payload.publication_url) if payload.publication_url else None
-    error = None
-
+    variant = _get_approved_variant(session, variant_id)
+    platform = payload.platform or variant.platform
     if platform == "telegram":
-        result = TelegramPublisher().publish(content)
-        result_status = Status(result.status)
-        message_id = result.message_id
-        publication_url = publication_url or result.publication_url
-        error = result.error
-    elif platform == "max":
-        result = MaxPublisher().publish(content)
-        result_status = Status(result.status)
-        message_id = result.message_id
-        publication_url = publication_url or result.publication_url
-        error = result.error
-    elif platform in EXPORT_PLATFORMS:
-        exporter = export_html if (payload.export_format or "markdown") == "html" else export_markdown
-        title = variant.title or (content.splitlines()[0] if content.splitlines() else None)
-        export_path = exporter(title=title, content=content, platform=platform)
-        result_status = Status.published
-    else:
-        error = f"Unsupported platform: {platform}"
-
-    publication.platform = platform
-    publication.status = result_status.value
-    publication.publication_url = publication_url
-    publication.message_id = message_id
-    publication.export_path = export_path
-    publication.error = error
-    if result_status == Status.published:
-        publication.published_at = now_utc()
-    commit_or_rollback(db)
-    db.refresh(publication)
-    return publication
+        return publish_variant_to_telegram(variant.id, session)
+    if platform in EXPORT_PLATFORMS:
+        payload.target_type = "variant"
+        payload.target_id = variant.id
+        payload.platform = platform
+        return export_variant(variant.id, payload, session)
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported platform: {platform}")
