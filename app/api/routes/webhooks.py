@@ -4,13 +4,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field, HttpUrl
+from sqlalchemy.orm import Session
 
 from app.api.routes._helpers import now_utc
-from app.api.routes.generation import _ITEMS as GENERATION_JOBS
 from app.api.routes.publications import publish as publish_content
-from app.api.routes.publications import _ITEMS as PUBLICATIONS
-from app.api.routes.raw_items import _ITEMS as RAW_ITEMS
-from app.api.routes.variants import _ITEMS as VARIANTS
+from app.api.routes.raw_items import create_rawitem
+from app.api.routes.db_helpers import commit_or_rollback, get_model_or_404
+from app.db.session import get_db
+from app.models.content import GeneratedVariant, Job, Publication
 from app.schemas.common import Status
 from app.schemas.generation import GenerationRead
 from app.schemas.publications import PublicationRead, PublishRequest
@@ -79,17 +80,14 @@ def validate_webhook_token(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook token")
 
 
-def _get_target(target_type: Literal["variant", "publication"], target_id: int) -> VariantRead | PublicationRead:
-    collection = VARIANTS if target_type == "variant" else PUBLICATIONS
-    item = next((item for item in collection if item.id == target_id), None)
-    if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{target_type} not found")
-    return item
+def _get_target(db: Session, target_type: Literal["variant", "publication"], target_id: int) -> GeneratedVariant | Publication:
+    return get_model_or_404(db, GeneratedVariant if target_type == "variant" else Publication, target_id, target_type)
 
 
 def _render_review_message(item: VariantRead | PublicationRead, request: ReviewNotifyRequest) -> str:
     header = f"Review required: {request.target_type} #{request.target_id}"
-    status_line = f"Status: {item.status.value}"
+    item_status = item.status.value if hasattr(item.status, "value") else item.status
+    status_line = f"Status: {item_status}"
     platform = getattr(item, "platform", None)
     strategy = getattr(item, "strategy", None)
     content = getattr(item, "content", None)
@@ -105,16 +103,18 @@ def _render_review_message(item: VariantRead | PublicationRead, request: ReviewN
 
 
 @router.post("/raw-item", response_model=RawItemRead, status_code=status.HTTP_201_CREATED, summary="Receive a raw item from n8n/RSS")
-def receive_raw_item(payload: RawItemCreate, _: None = Depends(validate_webhook_token)) -> RawItemRead:
-    item = RawItemRead(id=len(RAW_ITEMS) + 1, created_at=now_utc(), **payload.model_dump())
-    RAW_ITEMS.append(item)
-    return item
+def receive_raw_item(payload: RawItemCreate, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> RawItemRead:
+    return create_rawitem(payload, db)
 
 
 @router.post("/generate", response_model=GenerationRead, status_code=status.HTTP_202_ACCEPTED, summary="Start generation for a news event")
-def generate_from_webhook(payload: WebhookGenerateRequest, _: None = Depends(validate_webhook_token)) -> GenerationRead:
-    item = GenerationRead(
-        id=len(GENERATION_JOBS) + 1,
+def generate_from_webhook(payload: WebhookGenerateRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> GenerationRead:
+    job = Job(job_type="generation", payload=payload.model_dump(mode="json"), status=Status.processing.value, language=payload.language, topic=payload.topic, platform=payload.platform, strategy=payload.strategy)
+    db.add(job)
+    commit_or_rollback(db)
+    db.refresh(job)
+    return GenerationRead(
+        id=job.id,
         news_event_id=payload.news_event_id,
         strategy=payload.strategy,
         language=payload.language,
@@ -124,15 +124,13 @@ def generate_from_webhook(payload: WebhookGenerateRequest, _: None = Depends(val
         output=None,
         prompt_id=payload.prompt_id,
         prompt_version=payload.prompt_version,
-        created_at=now_utc(),
+        created_at=job.created_at or now_utc(),
     )
-    GENERATION_JOBS.append(item)
-    return item
 
 
 @router.post("/review-notify", response_model=ReviewNotifyResponse, summary="Prepare a Telegram admin review notification")
-def prepare_review_notification(payload: ReviewNotifyRequest, _: None = Depends(validate_webhook_token)) -> ReviewNotifyResponse:
-    item = _get_target(payload.target_type, payload.target_id)
+def prepare_review_notification(payload: ReviewNotifyRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> ReviewNotifyResponse:
+    item = _get_target(db, payload.target_type, payload.target_id)
     return ReviewNotifyResponse(
         target_type=payload.target_type,
         target_id=payload.target_id,
@@ -142,9 +140,9 @@ def prepare_review_notification(payload: ReviewNotifyRequest, _: None = Depends(
 
 
 @router.post("/publish", response_model=PublicationRead, summary="Publish an approved post")
-def publish_from_webhook(payload: WebhookPublishRequest, _: None = Depends(validate_webhook_token)) -> PublicationRead:
-    item = _get_target(payload.target_type, payload.target_id)
-    if item.status != Status.approved:
+def publish_from_webhook(payload: WebhookPublishRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> PublicationRead:
+    item = _get_target(db, payload.target_type, payload.target_id)
+    if item.status != Status.approved.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved posts can be published")
 
     result = publish_content(
@@ -154,8 +152,7 @@ def publish_from_webhook(payload: WebhookPublishRequest, _: None = Depends(valid
             platform=payload.platform,
             export_format=payload.export_format,
             publication_url=payload.publication_url,
-        )
+        ),
+        db,
     )
-    if not isinstance(result, PublicationRead):
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Publisher did not return a publication")
     return result

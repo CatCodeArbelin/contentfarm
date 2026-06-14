@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.common import Status
 
@@ -22,5 +22,6 @@ class RawItemCreate(RawItemBase):
 
 
 class RawItemRead(RawItemBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime

@@ -23,6 +23,10 @@ class Source(TimestampStatusMixin, Base):
 
     raw_items: Mapped[list["RawItem"]] = relationship(back_populates="source")
 
+    @property
+    def url(self) -> str:
+        return self.source_url
+
 
 class RawItem(TimestampStatusMixin, Base):
     __tablename__ = "raw_items"
@@ -45,6 +49,10 @@ class RawItem(TimestampStatusMixin, Base):
     source: Mapped[Source | None] = relationship(back_populates="raw_items")
     event_links: Mapped[list["SourceLink"]] = relationship(back_populates="raw_item")
 
+    @property
+    def url(self) -> str:
+        return self.source_url
+
 
 class NewsEvent(TimestampStatusMixin, Base):
     __tablename__ = "news_events"
@@ -65,6 +73,10 @@ class NewsEvent(TimestampStatusMixin, Base):
 
     source_links: Mapped[list["SourceLink"]] = relationship(back_populates="news_event")
     variants: Mapped[list["GeneratedVariant"]] = relationship(back_populates="news_event")
+
+    @property
+    def raw_item_ids(self) -> list[int]:
+        return [link.raw_item_id for link in self.source_links]
 
 
 class SourceLink(TimestampStatusMixin, Base):
@@ -182,6 +194,10 @@ class GeneratedVariant(TimestampStatusMixin, Base):
     approved_by: Mapped[str | None] = mapped_column(String(200))
 
     news_event: Mapped[NewsEvent] = relationship(back_populates="variants")
+
+    @property
+    def generation_id(self) -> int:
+        return self.news_event_id
     prompt: Mapped[Prompt | None] = relationship(back_populates="variants")
     publications: Mapped[list["Publication"]] = relationship(back_populates="variant")
 
@@ -211,6 +227,10 @@ class Publication(TimestampStatusMixin, Base):
     variant: Mapped[GeneratedVariant] = relationship(back_populates="publications")
     metrics: Mapped[list["Metric"]] = relationship(back_populates="publication")
 
+    @property
+    def url(self) -> str | None:
+        return self.publication_url
+
 
 class Metric(TimestampStatusMixin, Base):
     __tablename__ = "metrics"
@@ -229,6 +249,23 @@ class Metric(TimestampStatusMixin, Base):
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
 
     publication: Mapped[Publication] = relationship(back_populates="metrics")
+
+
+class ModerationAudit(TimestampStatusMixin, Base):
+    __tablename__ = "moderation_audits"
+    __table_args__ = (Index("ix_moderation_audits_variant_status", "variant_id", "status"),)
+
+    variant_id: Mapped[int] = mapped_column(ForeignKey("generated_variants.id", ondelete="CASCADE"), nullable=False, index=True)
+    reviewer: Mapped[str] = mapped_column(String(200), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    url_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    topic: Mapped[str | None] = mapped_column(String(128), index=True)
+    platform: Mapped[str | None] = mapped_column(String(64), index=True)
+    strategy: Mapped[str | None] = mapped_column(String(128), index=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
 
 
 class Job(TimestampStatusMixin, Base):

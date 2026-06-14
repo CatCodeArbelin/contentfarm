@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import Status
 
@@ -17,6 +17,7 @@ class GenerationRequest(BaseModel):
 
 
 class GenerationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     news_event_id: int
     strategy: str

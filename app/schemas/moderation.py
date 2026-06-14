@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import Status
 
@@ -13,6 +13,7 @@ class ModerationDecision(BaseModel):
 
 
 class ModerationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     variant_id: int
     status: Status

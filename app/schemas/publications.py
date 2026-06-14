@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.common import Status
 
@@ -27,6 +27,7 @@ class PublishRequest(BaseModel):
 
 
 class PublicationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     variant_id: int
     platform: str
