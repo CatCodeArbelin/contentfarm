@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants, workflow
+from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants, webhooks, workflow
 
 OPENAPI_TAGS = [
     {"name": "Sources", "description": "Source registry and ingestion configuration."},
@@ -12,6 +12,7 @@ OPENAPI_TAGS = [
     {"name": "Moderation", "description": "Editorial review decisions and audit trail."},
     {"name": "Metrics", "description": "Publication performance metrics."},
     {"name": "Collectors", "description": "Manual collection jobs for active sources."},
+    {"name": "Webhooks", "description": "Shared-secret endpoints for n8n and external automation."},
 ]
 
 
@@ -36,6 +37,8 @@ def create_app() -> FastAPI:
     app.include_router(publications.router, prefix="/api/v1")
     app.include_router(publications.publish_router)
     app.include_router(publications.publish_router, prefix="/api/v1")
+    app.include_router(webhooks.router)
+    app.include_router(webhooks.router, prefix="/api/v1")
     app.include_router(workflow.router)
     app.include_router(workflow.router, prefix="/api/v1")
     app.include_router(moderation.router, prefix="/api/v1")
