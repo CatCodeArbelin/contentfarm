@@ -102,6 +102,7 @@ Both scripts create a source, raw item, news event, generated variant, approval,
 The root `docker-compose.yml` starts the following services:
 
 - `app` — FastAPI application container built from the repository `Dockerfile`.
+- `frontend` — Next.js App Router frontend with TypeScript and Tailwind CSS, served on port 3000.
 - `postgres` — PostgreSQL 16 database for application and n8n persistence.
 - `redis` — Redis 7 instance for queues, cache, and background coordination.
 - `n8n` — workflow automation UI and webhook runtime.
@@ -112,6 +113,7 @@ Persistent Docker volumes are defined for PostgreSQL, Redis, n8n, and optional D
 
 Useful local URLs:
 
+- Frontend: <http://localhost:3000>
 - FastAPI app: <http://localhost:8000>
 - API health check: <http://localhost:8000/health>
 - API docs: <http://localhost:8000/docs>
@@ -141,6 +143,25 @@ If you use this optional profile, point the app at the Docker service instead of
 ```env
 OLLAMA_BASE_URL=http://ollama:11434
 ```
+
+## Frontend
+
+The `frontend/` directory contains the initial Next.js App Router scaffold for the future Contentfarm web interface. It uses TypeScript, Tailwind CSS, and dark mode by default. The current page is intentionally a Russian-language placeholder: it does not connect to real APIs and does not implement a dashboard.
+
+Run it through Docker Compose with the rest of the local stack:
+
+```bash
+docker compose up -d --build frontend
+```
+
+Or run it directly from the `frontend/` directory during local UI development:
+
+```bash
+npm install
+npm run dev
+```
+
+Copy `frontend/.env.example` if you need local frontend-specific overrides. The default local URL is <http://localhost:3000>.
 
 ## Database migrations
 
