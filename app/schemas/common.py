@@ -5,14 +5,25 @@ from typing import Generic, Literal, TypeVar
 from pydantic import BaseModel, Field
 
 
+class PublicationVariantStatus(str, Enum):
+    draft = "draft"
+    needs_review = "needs_review"
+    approved = "approved"
+    scheduled = "scheduled"
+    published = "published"
+    failed = "failed"
+
+
 class Status(str, Enum):
     draft = "draft"
+    needs_review = "needs_review"
     pending = "pending"
     active = "active"
     processing = "processing"
     pending_review = "pending_review"
     approved = "approved"
     rejected = "rejected"
+    scheduled = "scheduled"
     published = "published"
     failed = "failed"
     archived = "archived"

@@ -34,10 +34,13 @@ def queue_publication(payload: PublicationRequest) -> PublicationRead:
         strategy=payload.strategy,
         language=None,
         topic=None,
-        status=Status.pending,
+        status=Status.scheduled if payload.scheduled_at else Status.draft,
         url=None,
         created_at=now_utc(),
+        scheduled_at=payload.scheduled_at,
         published_at=None,
+        approved_at=None,
+        approved_by=None,
     )
     _ITEMS.append(item)
     return item

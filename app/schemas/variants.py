@@ -14,7 +14,7 @@ class VariantBase(BaseModel):
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None
     content: str
-    status: Status = Status.pending_review
+    status: Status = Status.needs_review
 
 
 class VariantCreate(VariantBase):
@@ -24,3 +24,5 @@ class VariantCreate(VariantBase):
 class VariantRead(VariantBase):
     id: int
     created_at: datetime
+    approved_at: datetime | None = None
+    approved_by: str | None = None

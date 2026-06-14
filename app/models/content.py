@@ -178,6 +178,8 @@ class GeneratedVariant(TimestampStatusMixin, Base):
     strategy: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(200))
 
     news_event: Mapped[NewsEvent] = relationship(back_populates="variants")
     prompt: Mapped[Prompt | None] = relationship(back_populates="variants")
@@ -200,6 +202,8 @@ class Publication(TimestampStatusMixin, Base):
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(200))
 
     variant: Mapped[GeneratedVariant] = relationship(back_populates="publications")
     metrics: Mapped[list["Metric"]] = relationship(back_populates="publication")
