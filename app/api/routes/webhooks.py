@@ -6,17 +6,17 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.orm import Session
 
-from app.api.routes._helpers import now_utc
 from app.api.routes.publications import publish as publish_content
 from app.api.routes.raw_items import create_rawitem
-from app.api.routes.db_helpers import commit_or_rollback, get_model_or_404
+from app.api.routes.db_helpers import get_model_or_404
 from app.db.session import get_db
-from app.models.content import GeneratedVariant, Job, Publication
+from app.models.content import GeneratedVariant, Publication
 from app.schemas.common import Status
-from app.schemas.generation import GenerationRead
+from app.schemas.generation import GenerateResponse
 from app.schemas.publications import PublicationRead, PublishRequest
 from app.schemas.raw_items import RawItemCreate, RawItemRead
 from app.schemas.variants import VariantRead
+from app.services.generator import generate_variants_for_news_event
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
@@ -107,25 +107,20 @@ def receive_raw_item(payload: RawItemCreate, _: None = Depends(validate_webhook_
     return create_rawitem(payload, db)
 
 
-@router.post("/generate", response_model=GenerationRead, status_code=status.HTTP_202_ACCEPTED, summary="Start generation for a news event")
-def generate_from_webhook(payload: WebhookGenerateRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> GenerationRead:
-    job = Job(job_type="generation", payload=payload.model_dump(mode="json"), status=Status.processing.value, language=payload.language, topic=payload.topic, platform=payload.platform, strategy=payload.strategy)
-    db.add(job)
-    commit_or_rollback(db)
-    db.refresh(job)
-    return GenerationRead(
-        id=job.id,
-        news_event_id=payload.news_event_id,
-        strategy=payload.strategy,
-        language=payload.language,
-        topic=payload.topic,
-        platform=payload.platform,
-        status=Status.processing,
-        output=None,
-        prompt_id=payload.prompt_id,
-        prompt_version=payload.prompt_version,
-        created_at=job.created_at or now_utc(),
-    )
+@router.post("/generate", response_model=GenerateResponse, status_code=status.HTTP_201_CREATED, summary="Generate variants for a news event")
+def generate_from_webhook(payload: WebhookGenerateRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> GenerateResponse:
+    try:
+        variants = generate_variants_for_news_event(db, payload.news_event_id)
+    except ValueError as exc:
+        db.rollback()
+        message = str(exc)
+        if "was not found" in message:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=message) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Generation failed: {exc}") from exc
+    return GenerateResponse(generated_variants=variants)
 
 
 @router.post("/review-notify", response_model=ReviewNotifyResponse, summary="Prepare a Telegram admin review notification")
@@ -141,9 +136,12 @@ def prepare_review_notification(payload: ReviewNotifyRequest, _: None = Depends(
 
 @router.post("/publish", response_model=PublicationRead, summary="Publish an approved post")
 def publish_from_webhook(payload: WebhookPublishRequest, _: None = Depends(validate_webhook_token), db: Session = Depends(get_db)) -> PublicationRead:
-    item = _get_target(db, payload.target_type, payload.target_id)
+    if payload.target_type == "publication":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Publishing by publication target is not supported in MVP v0.1; use target_type=variant")
+
+    item = get_model_or_404(db, GeneratedVariant, payload.target_id, "variant")
     if item.status != Status.approved.value:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved posts can be published")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved variants can be published")
 
     result = publish_content(
         PublishRequest(

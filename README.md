@@ -68,11 +68,24 @@ Use <http://localhost:8000/docs> to run the local workflow end to end:
 1. **Create a source** with `POST /api/v1/sources`.
 2. **Create a raw item** with `POST /api/v1/raw-items`, using the source ID from the previous step.
 3. **Deduplicate pending raw items** with `POST /api/v1/news-events/deduplicate`; this creates or updates a news event.
-4. **Generate a variant** with `POST /api/v1/generation`, using the news event ID and a strategy such as `telegram_short`.
+4. **Generate variants** with `POST /api/v1/generate/{news_event_id}`. This is the primary MVP v0.1 generation path and synchronously creates variants for the selected news event.
+
+   `POST /api/v1/generation` only creates a generation `Job` record for future async job/queue support; it does not generate variants and is not the main MVP path.
 5. **Approve the variant** with `POST /api/v1/variants/{variant_id}/approve`.
 6. **Publish or export the approved variant**:
    - Publish to Telegram with `POST /api/v1/publications/{variant_id}/publish-telegram`.
    - Export markdown or HTML with `POST /api/v1/publications/{variant_id}/export`.
+
+## Smoke test
+
+After the stack is running and migrations are applied, run the scripted MVP flow:
+
+```bash
+chmod +x scripts/smoke.sh
+./scripts/smoke.sh
+```
+
+The script uses `curl` and `jq` to create a source, raw item, news event, generated variant, approval, and markdown export. If `jq` is not installed, install it or copy the commented curl commands from `scripts/smoke.sh` and run them manually.
 
 ## Services
 
@@ -191,7 +204,7 @@ The app exposes shared-secret webhook endpoints for n8n at both `/webhooks/*` an
 Example RSS-to-publish workflow:
 
 1. **RSS Feed Trigger** — watches a feed and emits each RSS item.
-2. **HTTP Request: store raw item** — `POST http://app:8000/webhooks/raw-item` with JSON like:
+2. **HTTP Request: store raw item** — `POST http://app:8000/webhooks/raw-item` saves the raw item with JSON like:
 
    ```json
    {
@@ -207,7 +220,8 @@ Example RSS-to-publish workflow:
    }
    ```
 
-3. **HTTP Request: generate draft** — after the item is deduplicated or matched to a news event, call `POST http://app:8000/webhooks/generate`:
+3. **HTTP Request: deduplicate** — call `POST http://app:8000/news-events/deduplicate` or `POST http://app:8000/api/v1/news-events/deduplicate` to create or update a news event from pending raw items.
+4. **HTTP Request: generate variants** — call `POST http://app:8000/webhooks/generate`; for MVP v0.1 this synchronously creates variants and returns `generated_variants`:
 
    ```json
    {
@@ -218,7 +232,7 @@ Example RSS-to-publish workflow:
    }
    ```
 
-4. **HTTP Request: prepare review notification** — call `POST http://app:8000/webhooks/review-notify` for the generated variant:
+5. **HTTP Request: prepare review notification** — call `POST http://app:8000/webhooks/review-notify` for the generated variant:
 
    ```json
    {
@@ -228,9 +242,9 @@ Example RSS-to-publish workflow:
    }
    ```
 
-5. **Telegram node: send message** — send the `message` field returned by the previous node to the admin chat with HTML parse mode. The message includes approve, reject, and publish command templates.
-6. **Telegram Trigger / approval branch** — when an editor approves the post, mark the variant or publication approved through the moderation API.
-7. **HTTP Request: publish** — call `POST http://app:8000/webhooks/publish` only after approval:
+6. **Telegram node: send message** — send the `message` field returned by the previous node to the admin chat with HTML parse mode. The message includes approve, reject, and publish command templates.
+7. **Telegram Trigger / approval branch** — when an editor approves the post, mark the variant approved with `POST /variants/{variant_id}/approve` or `POST /api/v1/variants/{variant_id}/approve`.
+8. **HTTP Request: publish** — call `POST http://app:8000/webhooks/publish` only after approval:
 
    ```json
    {
@@ -240,4 +254,4 @@ Example RSS-to-publish workflow:
    }
    ```
 
-The publish webhook rejects anything that is not in `approved` status with `409 Conflict`, so n8n can safely retry or route non-approved posts back to the review branch.
+For MVP v0.1, `/webhooks/publish` supports only `target_type: "variant"`. Requests with `target_type: "publication"` return `400 Bad Request`; use variant targets after approval. The publish webhook rejects variants that are not in `approved` status with `409 Conflict`, so n8n can safely retry or route non-approved posts back to the review branch.
