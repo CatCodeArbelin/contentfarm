@@ -174,6 +174,7 @@ class GeneratedVariant(TimestampStatusMixin, Base):
     __tablename__ = "generated_variants"
     __table_args__ = (Index("ix_generated_variants_event_status", "news_event_id", "status"),)
 
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", index=True)
     news_event_id: Mapped[int] = mapped_column(ForeignKey("news_events.id", ondelete="CASCADE"), nullable=False, index=True)
     prompt_id: Mapped[int | None] = mapped_column(ForeignKey("prompts.id", ondelete="SET NULL"), index=True)
     prompt_version: Mapped[str | None] = mapped_column(String(64), index=True)

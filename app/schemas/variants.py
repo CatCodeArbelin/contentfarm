@@ -14,7 +14,7 @@ class VariantBase(BaseModel):
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None
     content: str
-    status: Status = Status.needs_review
+    status: Status = Status.draft
 
 
 class VariantCreate(VariantBase):
