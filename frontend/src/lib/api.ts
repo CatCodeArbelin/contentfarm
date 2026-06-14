@@ -62,6 +62,23 @@ export type Source = {
 
 export type SourceCreate = Omit<Source, "id" | "created_at" | "updated_at">;
 
+export type RssCollectPayload = {
+  source_id?: number;
+  url?: string;
+  name?: string;
+  language?: string;
+  topic?: string | null;
+  strategy?: string | null;
+};
+
+export type RssCollectResponse = {
+  source_id?: number;
+  fetched?: number;
+  created?: number;
+  skipped?: number;
+  [key: string]: number | undefined;
+};
+
 export type RawItem = {
   id: number;
   source_id: number;
@@ -244,6 +261,7 @@ export const api = {
   healthCheck: () => apiRequest<HealthResponse>("/health"),
   getSources: (params?: ListParams) => apiRequest<PaginatedResponse<Source>>(`/api/v1/sources${toQueryString(params)}`),
   createSource: (payload: SourceCreate) => apiRequest<Source>("/api/v1/sources", { method: "POST", body: JSON.stringify(payload) }),
+  collectRss: (payload: RssCollectPayload) => apiRequest<RssCollectResponse>("/api/v1/collectors/rss", { method: "POST", body: JSON.stringify(payload) }),
   getRawItems: (params?: ListParams) => apiRequest<PaginatedResponse<RawItem>>(`/api/v1/raw-items${toQueryString(params)}`),
   deduplicate: (limit = 100) => apiRequest<DeduplicateResponse>(`/api/v1/news-events/deduplicate${toQueryString({ limit })}`, { method: "POST" }),
   getNewsEvents: (params?: NewsEventListParams) => apiRequest<PaginatedResponse<NewsEvent>>(`/api/v1/news-events${toQueryString(params)}`),
@@ -284,6 +302,11 @@ export function useGetSources(params?: ListParams, options?: QueryConfig<Paginat
 export function useCreateSource(options?: MutationConfig<Source, SourceCreate>) {
   const queryClient = useQueryClient();
   return useMutation({ ...options, mutationFn: api.createSource, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["sources"] }); options?.onSuccess?.(...args); } });
+}
+
+export function useCollectRss(options?: MutationConfig<RssCollectResponse, RssCollectPayload>) {
+  const queryClient = useQueryClient();
+  return useMutation({ ...options, mutationFn: api.collectRss, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["sources"] }); void queryClient.invalidateQueries({ queryKey: ["raw-items"] }); options?.onSuccess?.(...args); } });
 }
 
 export function useGetRawItems(params?: ListParams, options?: QueryConfig<PaginatedResponse<RawItem>>) {
