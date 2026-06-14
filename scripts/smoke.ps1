@@ -53,7 +53,7 @@ $sourceResponse = Invoke-SmokeRequest -Method POST -Path "/sources" -Body @{
     platform = "rss"
     language = "en"
     topic = "smoke"
-    strategy = "telegram_short"
+    strategy = "short_news_post"
     status = "active"
 }
 Write-SmokeJson $sourceResponse
@@ -69,7 +69,7 @@ $rawItemResponse = Invoke-SmokeRequest -Method POST -Path "/raw-items" -Body @{
     language = "en"
     topic = "smoke"
     platform = "telegram"
-    strategy = "telegram_short"
+    strategy = "short_news_post"
     status = "pending"
 }
 Write-SmokeJson $rawItemResponse
@@ -105,5 +105,6 @@ $exportResponse = Invoke-SmokeRequest -Method POST -Path "/publications/$variant
 }
 Write-SmokeJson $exportResponse
 
+Write-Host "publication_id=$($exportResponse.id)"
 Write-Host "export_path=$($exportResponse.export_path)"
-Write-Host "Smoke completed"
+Write-Host "Smoke completed!"

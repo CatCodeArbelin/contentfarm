@@ -37,7 +37,7 @@ def _get_approved_variant(session: Session, variant_id: int) -> GeneratedVariant
 def _publication_from_variant(variant: GeneratedVariant, *, platform: str, status_value: str) -> Publication:
     return Publication(
         variant_id=variant.id,
-        platform=platform,
+        platform=variant.platform,
         strategy=variant.strategy,
         language=variant.language,
         topic=variant.topic,
@@ -76,7 +76,7 @@ def get_publication(item_id: int, session: Session = Depends(get_db)) -> Publica
 @router.post("", response_model=PublicationRead, status_code=status.HTTP_202_ACCEPTED, summary="Queue publication")
 def queue_publication(payload: PublicationRequest, session: Session = Depends(get_db)) -> PublicationRead:
     variant = get_model_or_404(session, GeneratedVariant, payload.variant_id, "Variant")
-    item = Publication(variant_id=variant.id, platform=payload.platform, strategy=payload.strategy, language=variant.language, topic=variant.topic, status=Status.scheduled.value if payload.scheduled_at else Status.draft.value, scheduled_at=payload.scheduled_at, approved_at=variant.approved_at, approved_by=variant.approved_by)
+    item = Publication(variant_id=variant.id, platform=variant.platform, strategy=variant.strategy, language=variant.language, topic=variant.topic, status=Status.scheduled.value if payload.scheduled_at else Status.draft.value, scheduled_at=payload.scheduled_at, approved_at=variant.approved_at, approved_by=variant.approved_by)
     session.add(item)
     commit_or_rollback(session)
     session.refresh(item)

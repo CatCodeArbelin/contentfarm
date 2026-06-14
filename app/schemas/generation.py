@@ -7,7 +7,7 @@ from app.schemas.common import Status
 
 class GenerationRequest(BaseModel):
     news_event_id: int
-    strategy: str = Field(examples=["telegram_short"])
+    strategy: str = Field(examples=["short_news_post"])
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None
     platform: str | None = None

@@ -14,23 +14,33 @@ from app.models.content import GeneratedVariant, NewsEvent, SourceLink
 from app.prompts.engine import PromptEngine
 
 GENERATION_PLATFORMS: Final[tuple[str, ...]] = (
-    "telegram_short",
-    "dzen_article",
-    "max_post",
-    "vc_case_analysis",
-    "habr_technical_draft",
-    "dtf_geek_post",
-    "pikabu_story",
+    "telegram",
+    "dzen",
+    "max",
+    "vc",
+    "habr",
+    "dtf",
+    "pikabu",
 )
 
+_LEGACY_PLATFORM_ALIASES: Final[dict[str, str]] = {
+    "telegram_short": "telegram",
+    "dzen_article": "dzen",
+    "max_post": "max",
+    "vc_case_analysis": "vc",
+    "habr_technical_draft": "habr",
+    "dtf_geek_post": "dtf",
+    "pikabu_story": "pikabu",
+}
+
 _STRATEGY_BY_PLATFORM: Final[dict[str, str]] = {
-    "telegram_short": "short_news_post",
-    "dzen_article": "longform_explainer",
-    "max_post": "social_news_post",
-    "vc_case_analysis": "business_case_analysis",
-    "habr_technical_draft": "technical_draft",
-    "dtf_geek_post": "geek_culture_post",
-    "pikabu_story": "storytelling_post",
+    "telegram": "short_news_post",
+    "dzen": "long_article",
+    "max": "short_news_post",
+    "vc": "business_case_analysis",
+    "habr": "tech_analysis",
+    "dtf": "geek_culture_post",
+    "pikabu": "storytelling_post",
 }
 
 _GENERATION_TEMPLATE: Final[str] = """
@@ -90,7 +100,8 @@ def generate_variants_for_news_event(
     source_context = _build_source_context(event)
 
     variants: list[GeneratedVariant] = []
-    for platform in platforms:
+    for requested_platform in platforms:
+        platform = _normalize_platform(requested_platform)
         strategy = _STRATEGY_BY_PLATFORM[platform]
         prompt = engine.render_template(
             _GENERATION_TEMPLATE,
@@ -111,7 +122,7 @@ def generate_variants_for_news_event(
             body=payload.body,
             sources=payload.sources,
             content=payload.body,
-            language=event.language,
+            language="ru",
             topic=event.topic,
             platform=payload.platform,
             strategy=payload.strategy,
@@ -127,6 +138,13 @@ def generate_variants_for_news_event(
         for variant in variants:
             session.refresh(variant)
     return variants
+
+
+def _normalize_platform(platform: str) -> str:
+    normalized = _LEGACY_PLATFORM_ALIASES.get(platform, platform)
+    if normalized not in _STRATEGY_BY_PLATFORM:
+        raise ValueError(f"Unsupported generation platform: {platform}")
+    return normalized
 
 
 def _build_source_context(event: NewsEvent) -> list[dict[str, str | None]]:
