@@ -36,6 +36,8 @@ def start_generation(payload: GenerationRequest) -> GenerationRead:
         platform=payload.platform,
         status=Status.processing,
         output=None,
+        prompt_id=payload.prompt_id,
+        prompt_version=payload.prompt_version,
         created_at=now_utc(),
     )
     _ITEMS.append(item)

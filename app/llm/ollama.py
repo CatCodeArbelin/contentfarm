@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 import httpx
 
+from app.prompts.engine import PromptEngine, PromptError, PromptType
+
 logger = logging.getLogger("contentfarm.llm.ollama")
 
 TaskName = Literal["summarize", "localize_ru", "humanize", "platform_adapt"]
@@ -42,6 +44,7 @@ class OllamaGenerationResult:
     strategy: str
     prompt: str
     source_text: str
+    prompt_version: str | None = None
     score: float = 0.0
     risk_level: str = "low"
     provider: str = "ollama"
@@ -52,6 +55,7 @@ class OllamaGenerationResult:
         return {
             "news_event_id": news_event_id,
             "prompt_id": prompt_id,
+            "prompt_version": self.prompt_version,
             "content": self.content,
             "language": self.language,
             "platform": self.platform,
@@ -74,42 +78,65 @@ class OllamaClient:
         model: str | None = None,
         timeout: float | None = None,
         retries: int | None = None,
+        prompt_engine: PromptEngine | None = None,
     ) -> None:
         _load_dotenv_if_needed()
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
         self.model = model or os.getenv("OLLAMA_MODEL") or "llama3.1"
         self.timeout = timeout if timeout is not None else _env_float("OLLAMA_TIMEOUT_SECONDS", 60.0)
         self.retries = retries if retries is not None else _env_int("OLLAMA_RETRIES", 2)
+        self.prompt_engine = prompt_engine or PromptEngine()
 
     def summarize(
         self, text: str, *, language: str = "en", platform: str = "generic", strategy: str = "summary"
     ) -> OllamaGenerationResult:
-        prompt = (
-            "Summarize the source material into a concise, factual draft. "
-            "Keep the key facts, avoid unsupported claims, and return only the draft text.\n\n"
-            f"Source material:\n{text}"
+        prompt, prompt_version = self._build_prompt(
+            "topic_strategy",
+            fallback=(
+                "Summarize the source material into a concise, factual draft. "
+                "Keep the key facts, avoid unsupported claims, and return only the draft text.\n\n"
+                f"Source material:\n{text}"
+            ),
+            context={"text": text, "topic": strategy},
+            language=language,
+            platform=platform,
+            strategy=strategy,
         )
-        return self._generate_result("summarize", prompt, text, language=language, platform=platform, strategy=strategy)
+        return self._generate_result("summarize", prompt, text, language=language, platform=platform, strategy=strategy, prompt_version=prompt_version)
 
     def localize_ru(
         self, text: str, *, platform: str = "generic", strategy: str = "localize_ru"
     ) -> OllamaGenerationResult:
-        prompt = (
-            "Translate and localize the text for a Russian-speaking audience. "
-            "Use natural Russian, preserve names and facts, and return only the localized text.\n\n"
-            f"Text:\n{text}"
+        prompt, prompt_version = self._build_prompt(
+            "global_humanizer",
+            fallback=(
+                "Translate and localize the text for a Russian-speaking audience. "
+                "Use natural Russian, preserve names and facts, and return only the localized text.\n\n"
+                f"Text:\n{text}"
+            ),
+            context={"text": text},
+            language="ru",
+            platform=platform,
+            strategy=strategy,
         )
-        return self._generate_result("localize_ru", prompt, text, language="ru", platform=platform, strategy=strategy)
+        return self._generate_result("localize_ru", prompt, text, language="ru", platform=platform, strategy=strategy, prompt_version=prompt_version)
 
     def humanize(
         self, text: str, *, language: str = "ru", platform: str = "generic", strategy: str = "humanize"
     ) -> OllamaGenerationResult:
-        prompt = (
-            "Rewrite the text so it sounds natural, clear, and human-written. "
-            "Keep the meaning and facts unchanged, remove robotic phrasing, and return only the rewritten text.\n\n"
-            f"Text:\n{text}"
+        prompt, prompt_version = self._build_prompt(
+            "global_humanizer",
+            fallback=(
+                "Rewrite the text so it sounds natural, clear, and human-written. "
+                "Keep the meaning and facts unchanged, remove robotic phrasing, and return only the rewritten text.\n\n"
+                f"Text:\n{text}"
+            ),
+            context={"text": text},
+            language=language,
+            platform=platform,
+            strategy=strategy,
         )
-        return self._generate_result("humanize", prompt, text, language=language, platform=platform, strategy=strategy)
+        return self._generate_result("humanize", prompt, text, language=language, platform=platform, strategy=strategy, prompt_version=prompt_version)
 
     def platform_adapt(
         self,
@@ -119,12 +146,19 @@ class OllamaClient:
         language: str = "ru",
         strategy: str = "platform_adapt",
     ) -> OllamaGenerationResult:
-        prompt = (
-            f"Adapt the text for publication on {platform}. Match the platform style, length, and formatting. "
-            "Keep facts intact, avoid clickbait, and return only the adapted post.\n\n"
-            f"Text:\n{text}"
+        prompt, prompt_version = self._build_prompt(
+            "platform_style",
+            fallback=(
+                f"Adapt the text for publication on {platform}. Match the platform style, length, and formatting. "
+                "Keep facts intact, avoid clickbait, and return only the adapted post.\n\n"
+                f"Text:\n{text}"
+            ),
+            context={"text": text, "platform": platform},
+            language=language,
+            platform=platform,
+            strategy=strategy,
         )
-        return self._generate_result("platform_adapt", prompt, text, language=language, platform=platform, strategy=strategy)
+        return self._generate_result("platform_adapt", prompt, text, language=language, platform=platform, strategy=strategy, prompt_version=prompt_version)
 
     def _generate_result(
         self,
@@ -135,6 +169,7 @@ class OllamaClient:
         language: str,
         platform: str,
         strategy: str,
+        prompt_version: str | None = None,
     ) -> OllamaGenerationResult:
         response = self._request(prompt, task=task)
         content = str(response.get("response", "")).strip()
@@ -151,6 +186,7 @@ class OllamaClient:
             strategy=strategy,
             prompt=prompt,
             source_text=source_text,
+            prompt_version=prompt_version,
             metadata={
                 "done": response.get("done"),
                 "total_duration": response.get("total_duration"),
@@ -159,6 +195,32 @@ class OllamaClient:
                 "eval_count": response.get("eval_count"),
             },
         )
+
+
+    def _build_prompt(
+        self,
+        prompt_type: PromptType,
+        *,
+        fallback: str,
+        context: dict[str, Any],
+        language: str,
+        platform: str,
+        strategy: str,
+    ) -> tuple[str, str | None]:
+        try:
+            prompt = self.prompt_engine.get_active(
+                prompt_type=prompt_type,
+                language=language,
+                platform=platform,
+                strategy=strategy,
+            )
+            return self.prompt_engine.render(prompt, **context), prompt.version
+        except PromptError:
+            logger.info(
+                "Falling back to built-in prompt",
+                extra={"prompt_type": prompt_type, "language": language, "platform": platform, "strategy": strategy},
+            )
+            return fallback, None
 
     def _request(self, prompt: str, *, task: TaskName) -> dict[str, Any]:
         url = f"{self.base_url}/api/generate"

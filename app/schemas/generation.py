@@ -12,6 +12,8 @@ class GenerationRequest(BaseModel):
     topic: str | None = None
     platform: str | None = None
     prompt: str | None = None
+    prompt_id: int | None = None
+    prompt_version: str | None = None
 
 
 class GenerationRead(BaseModel):
@@ -23,4 +25,6 @@ class GenerationRead(BaseModel):
     platform: str | None = None
     status: Status
     output: str | None = None
+    prompt_id: int | None = None
+    prompt_version: str | None = None
     created_at: datetime
