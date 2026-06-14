@@ -12,6 +12,18 @@ class PublicationRequest(BaseModel):
     scheduled_at: datetime | None = None
 
 
+class ApprovalRequest(BaseModel):
+    target_type: str = Field(pattern="^(variant|publication)$")
+    target_id: int
+    approved_by: str = Field(min_length=1, max_length=200)
+
+
+class PublishRequest(BaseModel):
+    target_type: str = Field(pattern="^(variant|publication)$")
+    target_id: int
+    publication_url: HttpUrl | None = None
+
+
 class PublicationRead(BaseModel):
     id: int
     variant_id: int
@@ -22,4 +34,7 @@ class PublicationRead(BaseModel):
     status: Status
     url: HttpUrl | None = None
     created_at: datetime
+    scheduled_at: datetime | None = None
     published_at: datetime | None = None
+    approved_at: datetime | None = None
+    approved_by: str | None = None

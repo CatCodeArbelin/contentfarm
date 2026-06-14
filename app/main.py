@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants
+from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants, workflow
 
 OPENAPI_TAGS = [
     {"name": "Sources", "description": "Source registry and ingestion configuration."},
@@ -34,6 +34,8 @@ def create_app() -> FastAPI:
     app.include_router(generation.generate_router, prefix="/api/v1")
     app.include_router(variants.router, prefix="/api/v1")
     app.include_router(publications.router, prefix="/api/v1")
+    app.include_router(workflow.router)
+    app.include_router(workflow.router, prefix="/api/v1")
     app.include_router(moderation.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
     app.include_router(collectors.router, prefix="/api/v1")
