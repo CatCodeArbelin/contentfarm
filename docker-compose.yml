@@ -30,10 +30,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_FRONTEND_URL: ${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
+        NEXT_PUBLIC_N8N_URL: ${NEXT_PUBLIC_N8N_URL:-http://localhost:5678}
     env_file:
       - ./frontend/.env.example
     environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
       NEXT_PUBLIC_FRONTEND_URL: ${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
+      NEXT_PUBLIC_N8N_URL: ${NEXT_PUBLIC_N8N_URL:-http://localhost:5678}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
