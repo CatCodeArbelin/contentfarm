@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useToast } from "./toast-provider";
 
@@ -8,6 +9,11 @@ export function CommandBar() {
 
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      <nav className="flex flex-wrap gap-2" aria-label="Основная навигация">
+        <Link href="/pipeline" className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/20">Конвейер</Link>
+        <Link href="/sources" className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10">Источники</Link>
+        <Link href="/variants" className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10">Модерация</Link>
+      </nav>
       <label className="relative block md:w-80">
         <span className="sr-only">Поиск</span>
         <input className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Найти материал, источник или задачу" />
