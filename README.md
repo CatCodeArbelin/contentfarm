@@ -227,7 +227,7 @@ Example RSS-to-publish workflow:
      "language": "en",
      "topic": "tech",
      "platform": "telegram",
-     "strategy": "telegram_short",
+     "strategy": "short_news_post",
      "status": "pending"
    }
    ```
@@ -238,7 +238,7 @@ Example RSS-to-publish workflow:
    ```json
    {
      "news_event_id": 42,
-     "strategy": "telegram_short",
+     "strategy": "short_news_post",
      "language": "en",
      "platform": "telegram"
    }

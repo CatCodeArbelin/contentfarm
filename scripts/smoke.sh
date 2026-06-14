@@ -49,7 +49,7 @@ SOURCE_RESPONSE=$(request POST /sources "$(cat <<JSON
   "platform": "rss",
   "language": "en",
   "topic": "smoke",
-  "strategy": "telegram_short",
+  "strategy": "short_news_post",
   "status": "active"
 }
 JSON
@@ -68,7 +68,7 @@ RAW_ITEM_RESPONSE=$(request POST /raw-items "$(cat <<JSON
   "language": "en",
   "topic": "smoke",
   "platform": "telegram",
-  "strategy": "telegram_short",
+  "strategy": "short_news_post",
   "status": "pending"
 }
 JSON
@@ -100,4 +100,4 @@ echo "==> POST /publications/{variant_id}/export"
 EXPORT_RESPONSE=$(request POST "/publications/$VARIANT_ID/export" '{"platform":"telegram","format":"markdown"}')
 echo "$EXPORT_RESPONSE" | tee /tmp/contentfarm_smoke_export.json
 
-echo "Smoke flow completed successfully."
+echo "Smoke completed!"

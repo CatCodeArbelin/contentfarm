@@ -23,7 +23,7 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 class WebhookGenerateRequest(BaseModel):
     news_event_id: int
-    strategy: str = Field(default="telegram_short", examples=["telegram_short"])
+    strategy: str = Field(default="short_news_post", examples=["short_news_post"])
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None
     platform: str | None = Field(default=None, examples=["telegram"])
