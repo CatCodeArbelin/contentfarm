@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Body, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery
+from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery, now_utc
 from app.api.routes.db_helpers import commit_or_rollback, enum_dump, get_model_or_404, list_models
 from app.db.session import get_db
-from app.models.content import GeneratedVariant
-from app.schemas.common import ListFilters, PaginatedResponse
+from app.models.content import GeneratedVariant, ModerationAudit
+from app.schemas.common import ListFilters, PaginatedResponse, Status
 from app.schemas.variants import VariantCreate, VariantRead
 
 router = APIRouter(prefix="/variants", tags=["Variants"])
@@ -38,6 +38,28 @@ def list_variants(
 @router.get("/{item_id}", response_model=VariantRead, summary="Get variant")
 def get_variant(item_id: int, db: Session = Depends(get_db)) -> VariantRead:
     return get_model_or_404(db, GeneratedVariant, item_id, "Variant")
+
+
+@router.post("/{variant_id}/approve", response_model=VariantRead, summary="Approve variant")
+def approve_variant(variant_id: int, approved_by: str = Body(default="api", embed=True), db: Session = Depends(get_db)) -> VariantRead:
+    item = get_model_or_404(db, GeneratedVariant, variant_id, "Variant")
+    item.status = Status.approved.value
+    item.approved_at = now_utc()
+    item.approved_by = approved_by
+    db.add(ModerationAudit(variant_id=item.id, status=Status.approved.value, reviewer=approved_by, language=item.language, topic=item.topic, platform=item.platform, strategy=item.strategy))
+    commit_or_rollback(db)
+    db.refresh(item)
+    return item
+
+
+@router.post("/{variant_id}/reject", response_model=VariantRead, summary="Reject variant")
+def reject_variant(variant_id: int, reason: str | None = Body(default=None, embed=True), rejected_by: str = Body(default="api", embed=True), db: Session = Depends(get_db)) -> VariantRead:
+    item = get_model_or_404(db, GeneratedVariant, variant_id, "Variant")
+    item.status = Status.rejected.value
+    db.add(ModerationAudit(variant_id=item.id, status=Status.rejected.value, reviewer=rejected_by, comment=reason, language=item.language, topic=item.topic, platform=item.platform, strategy=item.strategy))
+    commit_or_rollback(db)
+    db.refresh(item)
+    return item
 
 
 @router.post("", response_model=VariantRead, status_code=status.HTTP_201_CREATED, summary="Create variant")

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 from app.api.routes import collectors, generation, metrics, moderation, news_events, publications, raw_items, sources, variants, webhooks, workflow
 
@@ -16,6 +17,12 @@ OPENAPI_TAGS = [
 ]
 
 
+def generate_operation_id(route: APIRoute) -> str:
+    method = next(iter(sorted(route.methods or ["GET"]))).lower()
+    path = route.path_format.strip("/").replace("/", "_").replace("{", "").replace("}", "").replace("-", "_")
+    return f"{route.name}_{method}_{path or 'root'}"
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Contentfarm API",
@@ -25,15 +32,21 @@ def create_app() -> FastAPI:
         openapi_tags=OPENAPI_TAGS,
         contact={"name": "Contentfarm maintainers"},
         license_info={"name": "MIT"},
+        generate_unique_id_function=generate_operation_id,
     )
 
+    app.include_router(sources.router)
     app.include_router(sources.router, prefix="/api/v1")
+    app.include_router(raw_items.router)
     app.include_router(raw_items.router, prefix="/api/v1")
+    app.include_router(news_events.router)
     app.include_router(news_events.router, prefix="/api/v1")
     app.include_router(generation.router, prefix="/api/v1")
     app.include_router(generation.generate_router)
     app.include_router(generation.generate_router, prefix="/api/v1")
+    app.include_router(variants.router)
     app.include_router(variants.router, prefix="/api/v1")
+    app.include_router(publications.router)
     app.include_router(publications.router, prefix="/api/v1")
     app.include_router(publications.publish_router)
     app.include_router(publications.publish_router, prefix="/api/v1")
@@ -44,6 +57,16 @@ def create_app() -> FastAPI:
     app.include_router(moderation.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
     app.include_router(collectors.router, prefix="/api/v1")
+
+    operation_id_counts: dict[str, int] = {}
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            method = next(iter(sorted(route.methods or ["GET"]))).lower()
+            path = route.path.strip("/").replace("/", "_").replace("{", "").replace("}", "").replace("-", "_")
+            base_operation_id = f"{route.name}_{method}_{path or 'root'}"
+            operation_id_counts[base_operation_id] = operation_id_counts.get(base_operation_id, 0) + 1
+            suffix = f"_{operation_id_counts[base_operation_id]}" if operation_id_counts[base_operation_id] > 1 else ""
+            route.operation_id = f"{base_operation_id}{suffix}"
 
     @app.get("/health", tags=["Health"], summary="Health check")
     def health() -> dict[str, str]:

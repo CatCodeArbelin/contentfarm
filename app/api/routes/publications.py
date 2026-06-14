@@ -39,6 +39,22 @@ def queue_publication(payload: PublicationRequest, db: Session = Depends(get_db)
     return item
 
 
+@router.post("/{variant_id}/publish-telegram", response_model=PublicationRead, summary="Publish variant to Telegram")
+def publish_variant_to_telegram(variant_id: int, db: Session = Depends(get_db)) -> PublicationRead:
+    return publish(PublishRequest(target_type="variant", target_id=variant_id, platform="telegram"), db)
+
+
+@router.post("/{variant_id}/export", response_model=PublicationRead, summary="Export variant")
+def export_variant(variant_id: int, payload: PublishRequest | None = None, db: Session = Depends(get_db)) -> PublicationRead:
+    variant = get_model_or_404(db, GeneratedVariant, variant_id, "Variant")
+    request = payload or PublishRequest(target_type="variant", target_id=variant_id, platform=variant.platform, export_format="markdown")
+    request.target_type = "variant"
+    request.target_id = variant_id
+    request.platform = request.platform or variant.platform
+    request.export_format = request.export_format or "markdown"
+    return publish(request, db)
+
+
 @router.patch("/{item_id}", response_model=PublicationRead, summary="Update publication")
 def update_publication(item_id: int, payload: PublicationRequest, db: Session = Depends(get_db)) -> PublicationRead:
     item = get_model_or_404(db, Publication, item_id, "Publication")

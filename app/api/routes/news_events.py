@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.content import NewsEvent, SourceLink
 from app.schemas.common import ListFilters, PaginatedResponse
 from app.schemas.news_events import NewsEventCreate, NewsEventRead
+from app.services.deduplication import deduplicate_pending_raw_items
 
 router = APIRouter(prefix="/news-events", tags=["NewsEvents"])
 
@@ -38,9 +39,20 @@ def list_news_events(
     return PaginatedResponse[NewsEventRead](items=items, limit=limit, offset=offset, total=total)
 
 
-@router.get("/{item_id}", response_model=NewsEventRead, summary="Get news event")
-def get_news_event(item_id: int, db: Session = Depends(get_db)) -> NewsEventRead:
-    return get_model_or_404(db, NewsEvent, item_id, "News event")
+@router.get("/{news_event_id}", response_model=NewsEventRead, summary="Get news event")
+def get_news_event(news_event_id: int, db: Session = Depends(get_db)) -> NewsEventRead:
+    return get_model_or_404(db, NewsEvent, news_event_id, "News event")
+
+
+@router.post("/deduplicate", status_code=status.HTTP_200_OK, summary="Deduplicate pending raw items")
+def deduplicate_news_events(limit: LimitQuery = 100, db: Session = Depends(get_db)) -> dict[str, object]:
+    results = deduplicate_pending_raw_items(db, limit=limit, commit=True)
+    return {
+        "processed": len(results),
+        "created": sum(1 for result in results if result.created),
+        "matched": sum(1 for result in results if not result.created),
+        "news_event_ids": [result.news_event.id for result in results],
+    }
 
 
 @router.post("", response_model=NewsEventRead, status_code=status.HTTP_201_CREATED, summary="Create news event")
