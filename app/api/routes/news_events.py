@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 
-from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery, apply_filters, now_utc
+from app.api.routes._helpers import CreatedAtQuery, LimitQuery, MaxScoreQuery, MinScoreQuery, OffsetQuery, SortByQuery, SortOrderQuery, StatusQuery, TextQuery, apply_filters, now_utc
 from app.schemas.common import ListFilters, PaginatedResponse
 from app.schemas.news_events import NewsEventCreate, NewsEventRead
 
@@ -19,8 +19,23 @@ def list_news_events(
     platform: TextQuery = None,
     strategy: TextQuery = None,
     created_at: CreatedAtQuery = None,
+    min_score: MinScoreQuery = None,
+    max_score: MaxScoreQuery = None,
+    sort_by: SortByQuery = "created_at",
+    sort_order: SortOrderQuery = "desc",
 ) -> PaginatedResponse[NewsEventRead]:
-    filters = ListFilters(status=status, language=language, topic=topic, platform=platform, strategy=strategy, created_at=created_at)
+    filters = ListFilters(
+        status=status,
+        language=language,
+        topic=topic,
+        platform=platform,
+        strategy=strategy,
+        created_at=created_at,
+        min_score=min_score,
+        max_score=max_score,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
     items, total = apply_filters(_ITEMS, filters, limit, offset)
     return PaginatedResponse[NewsEventRead](items=items, limit=limit, offset=offset, total=total)
 

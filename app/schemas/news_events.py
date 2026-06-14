@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +15,8 @@ class NewsEventBase(BaseModel):
     strategy: str | None = None
     status: Status = Status.pending
     raw_item_ids: list[int] = Field(default_factory=list)
+    score: float = Field(default=0.0, ge=0)
+    reasons: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class NewsEventCreate(NewsEventBase):
