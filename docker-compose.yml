@@ -8,13 +8,11 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-contentfarm}:${POSTGRES_PASSWORD:-contentfarm_password}@postgres:5432/${POSTGRES_DB:-contentfarm}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/0
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
@@ -90,6 +88,7 @@ services:
     restart: unless-stopped
 
   ollama:
+    profiles: ["ollama"]
     image: ollama/ollama:latest
     environment:
       OLLAMA_HOST: 0.0.0.0:11434

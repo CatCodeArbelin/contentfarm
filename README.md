@@ -10,10 +10,10 @@ The root `docker-compose.yml` starts the following services:
 - `postgres` — PostgreSQL 16 database for application and n8n persistence.
 - `redis` — Redis 7 instance for queues, cache, and background coordination.
 - `n8n` — workflow automation UI and webhook runtime.
-- `ollama` — local LLM runtime used for draft generation.
+- `ollama` — optional local LLM runtime used for draft generation when explicitly enabled with the `ollama` profile.
 - `adminer` — optional database UI enabled with the `adminer` profile.
 
-Persistent Docker volumes are defined for PostgreSQL, Redis, n8n, and Ollama data.
+Persistent Docker volumes are defined for PostgreSQL, Redis, n8n, and optional Ollama data.
 
 ## Configuration
 
@@ -58,7 +58,7 @@ Useful local URLs:
 
 - FastAPI app: <http://localhost:8000>
 - n8n: <http://localhost:5678>
-- Ollama API: <http://localhost:11434>
+- Ollama API, when running separately on the host or with the optional profile: <http://localhost:11434>
 - Adminer, when profile is enabled: <http://localhost:8080>
 
 ## Database migrations
@@ -95,7 +95,17 @@ If the collector is exposed as a FastAPI or Typer command in your implementation
 docker compose exec app python -m contentfarm.cli collect
 ```
 
-## Generate drafts
+## Ollama setup and draft generation
+
+On Windows 11, install and start Ollama separately in Windows rather than running it inside Docker. The application defaults to connecting to the host Ollama API at `http://host.docker.internal:11434`; keep `OLLAMA_BASE_URL` set to that value unless you intentionally run Ollama elsewhere.
+
+Pull the default recommended model before generating drafts:
+
+```bash
+ollama pull qwen2.5:14b
+```
+
+If your machine does not have enough memory for that model or you prefer another model, choose a different Ollama model, pull it with `ollama pull <model>`, and set `OLLAMA_MODEL=<model>` in `.env`.
 
 Generate drafts with the configured Ollama model:
 
@@ -103,10 +113,11 @@ Generate drafts with the configured Ollama model:
 docker compose exec app python -m contentfarm.cli generate-drafts --model "$OLLAMA_MODEL"
 ```
 
-To preload a model into the Ollama volume, run:
+The compose file still includes an optional `ollama` service for users who explicitly want Docker-managed Ollama. Start it with the `ollama` profile and then pull a model into that service:
 
 ```bash
-docker compose exec ollama ollama pull "$OLLAMA_MODEL"
+docker compose --profile ollama up -d ollama
+docker compose exec ollama ollama pull "${OLLAMA_MODEL:-qwen2.5:14b}"
 ```
 
 ## Approve and publish flow
