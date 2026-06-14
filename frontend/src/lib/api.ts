@@ -324,12 +324,12 @@ export function useRejectVariant(options?: MutationConfig<Variant, { variantId: 
 
 export function useExportVariant(options?: MutationConfig<Publication, { variantId: number; platform: ExportPlatform; export_format?: ExportFormat }>) {
   const queryClient = useQueryClient();
-  return useMutation({ ...options, mutationFn: api.exportVariant, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["publications"] }); options?.onSuccess?.(...args); } });
+  return useMutation({ ...options, mutationFn: api.exportVariant, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["publications"] }); void queryClient.invalidateQueries({ queryKey: ["variants"] }); options?.onSuccess?.(...args); } });
 }
 
 export function usePublishTelegram(options?: MutationConfig<Publication, number>) {
   const queryClient = useQueryClient();
-  return useMutation({ ...options, mutationFn: api.publishTelegram, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["publications"] }); options?.onSuccess?.(...args); } });
+  return useMutation({ ...options, mutationFn: api.publishTelegram, onSuccess: (...args) => { void queryClient.invalidateQueries({ queryKey: ["publications"] }); void queryClient.invalidateQueries({ queryKey: ["variants"] }); options?.onSuccess?.(...args); } });
 }
 
 export function useGetPublications(params?: ListParams, options?: QueryConfig<PaginatedResponse<Publication>>) {
