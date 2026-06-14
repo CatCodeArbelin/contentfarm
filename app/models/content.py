@@ -60,6 +60,7 @@ class NewsEvent(TimestampStatusMixin, Base):
     strategy: Mapped[str | None] = mapped_column(String(128), index=True)
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
+    event_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON)
 
     source_links: Mapped[list["SourceLink"]] = relationship(back_populates="news_event")
     variants: Mapped[list["GeneratedVariant"]] = relationship(back_populates="news_event")
@@ -79,6 +80,7 @@ class SourceLink(TimestampStatusMixin, Base):
     strategy: Mapped[str | None] = mapped_column(String(128), index=True)
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low", index=True)
+    reasons: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
 
     news_event: Mapped[NewsEvent] = relationship(back_populates="source_links")
     raw_item: Mapped[RawItem] = relationship(back_populates="event_links")
