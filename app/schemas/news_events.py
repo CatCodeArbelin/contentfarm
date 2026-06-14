@@ -16,6 +16,8 @@ class NewsEventBase(BaseModel):
     status: Status = Status.pending
     raw_item_ids: list[int] = Field(default_factory=list)
     score: float = Field(default=0.0, ge=0)
+    risk_level: str = "low"
+    source_url: str | None = None
     reasons: list[dict[str, Any]] = Field(default_factory=list)
 
 
