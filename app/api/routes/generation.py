@@ -1,10 +1,14 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.api.routes._helpers import CreatedAtQuery, LimitQuery, OffsetQuery, StatusQuery, TextQuery, apply_filters, now_utc
+from app.db.session import get_db
 from app.schemas.common import ListFilters, PaginatedResponse, Status
-from app.schemas.generation import GenerationRead, GenerationRequest
+from app.schemas.generation import GenerateRequest, GenerateResponse, GenerationRead, GenerationRequest
+from app.services.generator import generate_variants_for_news_event
 
 router = APIRouter(prefix="/generation", tags=["Generation"])
+generate_router = APIRouter(tags=["Generation"])
 
 _ITEMS: list[GenerationRead] = []
 
@@ -42,3 +46,19 @@ def start_generation(payload: GenerationRequest) -> GenerationRead:
     )
     _ITEMS.append(item)
     return item
+
+
+@generate_router.post("/generate", response_model=GenerateResponse, status_code=status.HTTP_201_CREATED, summary="Generate variants for a news event")
+def generate(payload: GenerateRequest, db: Session = Depends(get_db)) -> GenerateResponse:
+    try:
+        variants = generate_variants_for_news_event(db, payload.news_event_id)
+    except ValueError as exc:
+        db.rollback()
+        message = str(exc)
+        if "was not found" in message:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=message) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Generation failed: {exc}") from exc
+    return GenerateResponse(generated_variants=variants)
