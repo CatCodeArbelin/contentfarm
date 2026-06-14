@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { getRussianErrorMessage, useGenerateNewsEvent, useGetNewsEvents, type NewsEvent } from "../../src/lib/api";
+import { ActionButton, InlineNotice, OperationResult } from "../../components/action-ui";
+import { useToast } from "../../components/toast-provider";
 
 function formatScore(score: number) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(score);
@@ -22,11 +24,15 @@ function sourceUrlText(sourceUrl?: string | null) {
 }
 
 function NewsEventCard({ event }: { event: NewsEvent }) {
+  const { showToast } = useToast();
   const [successVariantIds, setSuccessVariantIds] = useState<number[]>([]);
   const generateMutation = useGenerateNewsEvent({
     onSuccess: (data) => {
-      setSuccessVariantIds(data.generated_variants.map((variant) => variant.id));
+      const ids = data.generated_variants.map((variant) => variant.id);
+      setSuccessVariantIds(ids);
+      showToast({ title: "Генерация завершена", description: `Создано вариантов: ${ids.length}.`, kind: "success" });
     },
+    onError: (error) => showToast({ title: "Не удалось сгенерировать варианты", description: getRussianErrorMessage(error), kind: "error" }),
   });
   const isGenerating = generateMutation.isPending;
 
@@ -38,14 +44,7 @@ function NewsEventCard({ event }: { event: NewsEvent }) {
           <h2 className="mt-2 text-xl font-semibold text-white">{event.title}</h2>
           <p className="mt-3 text-sm leading-6 text-slate-300">{event.summary}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => generateMutation.mutate(event.id)}
-          disabled={isGenerating}
-          className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isGenerating ? "Генерируем…" : "Сгенерировать"}
-        </button>
+<ActionButton variant="primary" isLoading={isGenerating} loadingText="Генерируем…" onClick={() => { showToast({ title: "Выполняется…", description: `Генерируем варианты для инфоповода #${event.id}.`, kind: "loading" }); generateMutation.mutate(event.id); }}>Сгенерировать</ActionButton>
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -73,9 +72,9 @@ function NewsEventCard({ event }: { event: NewsEvent }) {
         </div>
       </dl>
 
-      {isGenerating && <div className="mt-4 rounded-2xl border border-cyan-300/30 bg-cyan-400/10 p-4 text-sm text-cyan-100">Идёт генерация вариантов. Пожалуйста, подождите…</div>}
-      {generateMutation.isSuccess && <div className="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 p-4 text-sm text-emerald-100">Генерация успешно завершена. <Link className="font-semibold underline underline-offset-4" href={successVariantIds.length === 1 ? `/variants/${successVariantIds[0]}` : "/variants"}>Перейти к вариантам</Link>.</div>}
-      {generateMutation.isError && <div className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-400/10 p-4 text-sm text-rose-100">Не удалось сгенерировать варианты: {getRussianErrorMessage(generateMutation.error)}</div>}
+      {isGenerating && <div className="mt-4"><InlineNotice tone="info">Идёт генерация вариантов. Кнопка отключена, изменения появятся после завершения.</InlineNotice></div>}
+      {generateMutation.isSuccess && <div className="mt-4"><OperationResult title="Генерация завершена" summary={<>Создано вариантов: {successVariantIds.length}. <Link className="font-semibold underline underline-offset-4" href={successVariantIds.length === 1 ? `/variants/${successVariantIds[0]}` : "/variants"}>Перейти к вариантам</Link>.</>} /></div>}
+      {generateMutation.isError && <div className="mt-4"><InlineNotice tone="error">Не удалось сгенерировать варианты: {getRussianErrorMessage(generateMutation.error)}</InlineNotice></div>}
     </article>
   );
 }

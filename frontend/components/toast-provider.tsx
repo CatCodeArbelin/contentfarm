@@ -2,10 +2,13 @@
 
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
+type ToastKind = "info" | "success" | "error" | "loading";
+
 type Toast = {
   id: number;
   title: string;
   description: string;
+  kind?: ToastKind;
 };
 
 type ToastContextValue = {
@@ -24,12 +27,20 @@ export function useToast() {
   return context;
 }
 
+const dotStyles: Record<ToastKind, string> = {
+  info: "bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.9)]",
+  success: "bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.9)]",
+  error: "bg-rose-300 shadow-[0_0_16px_rgba(253,164,175,0.9)]",
+  loading: "bg-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.9)]",
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([
     {
       id: 1,
       title: "Интерфейс готов",
-      description: "Демонстрационные уведомления работают без подключения API.",
+      description: "Уведомления покажут начало, завершение и результат операций.",
+      kind: "info",
     },
   ]);
 
@@ -56,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             className="pointer-events-auto rounded-2xl border border-cyan-300/20 bg-slate-900/85 p-4 text-sm shadow-2xl shadow-cyan-950/40 backdrop-blur-xl"
           >
             <div className="flex items-start gap-3">
-              <span className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.9)]" />
+              <span className={`mt-1 h-2.5 w-2.5 rounded-full ${dotStyles[toast.kind ?? "info"]}`} />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-white">{toast.title}</p>
                 <p className="mt-1 text-slate-300">{toast.description}</p>
