@@ -1,13 +1,16 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.common import Status
 
 
 class SourceBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    url: HttpUrl
+    url: HttpUrl = Field(
+        validation_alias=AliasChoices("url", "source_url"),
+        serialization_alias="url",
+    )
     platform: str = Field(examples=["rss"])
     language: str = Field(default="en", min_length=2, max_length=16)
     topic: str | None = None
@@ -21,7 +24,11 @@ class SourceCreate(SourceBase):
 
 class SourceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    url: HttpUrl | None = None
+    url: HttpUrl | None = Field(
+        default=None,
+        validation_alias=AliasChoices("url", "source_url"),
+        serialization_alias="url",
+    )
     platform: str | None = None
     language: str | None = Field(default=None, min_length=2, max_length=16)
     topic: str | None = None
