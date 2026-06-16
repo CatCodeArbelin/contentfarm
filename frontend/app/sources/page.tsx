@@ -14,6 +14,7 @@ import { useToast } from "../../components/toast-provider";
 import { addActionLogEntry } from "../../src/lib/action-log";
 import {
   ActionButton,
+  EmptyState,
   InlineNotice,
   OperationResult,
 } from "../../components/action-ui";
@@ -363,10 +364,19 @@ export default function SourcesPage() {
                 }}
               />
             ))}
-            {!sourcesQuery.isLoading && sources.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center text-slate-400">
-                Источников пока нет. Добавьте первую RSS-ленту через форму.
-              </div>
+            {!sourcesQuery.isLoading && !sourcesQuery.error && sources.length === 0 && (
+              <EmptyState
+                title="Добавьте первый RSS-источник"
+                description="Здесь пока нет данных, потому что ни одна RSS-лента не подключена. Заполните форму слева, чтобы сохранить источник, а затем нажмите «Собрать RSS» у созданной ленты."
+                primaryAction={
+                  <a
+                    href="#source-name"
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Добавить источник
+                  </a>
+                }
+              />
             )}
           </section>
         </section>

@@ -13,6 +13,7 @@ import {
 } from "../../src/lib/api";
 import {
   ActionButton,
+  EmptyState,
   InlineNotice,
   OperationResult,
 } from "../../components/action-ui";
@@ -332,9 +333,18 @@ export default function NewsEventsPage() {
           {!newsEventsQuery.isLoading &&
             !newsEventsQuery.isError &&
             events.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center text-slate-400">
-                Инфоповоды пока не найдены.
-              </div>
+              <EmptyState
+                title="Запустите дедупликацию"
+                description="Инфоповодов нет, потому что сырые материалы ещё не сгруппированы. Перейдите на страницу сырых материалов и нажмите «Дедуплицировать ожидающие», чтобы создать инфоповоды."
+                primaryAction={
+                  <Link
+                    href="/raw-items"
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Перейти к сырым материалам
+                  </Link>
+                }
+              />
             )}
         </section>
       </div>
