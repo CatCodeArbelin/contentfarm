@@ -18,6 +18,7 @@ import {
   OperationResult,
 } from "../../components/action-ui";
 
+import { statusText as ruStatusText } from "../../src/lib/ui-labels";
 const statusLabels: Partial<Record<ApiStatus, string>> = {
   active: "Активен",
   pending: "Ожидает",
@@ -46,7 +47,7 @@ function formatDate(value?: string | null) {
 }
 
 function statusText(status: ApiStatus) {
-  return statusLabels[status] ?? status;
+  return statusLabels[status] ?? ruStatusText(status);
 }
 
 function validateForm(form: FormState) {
@@ -124,7 +125,7 @@ function SourceCard({
       </div>
       <dl className="mt-5 grid gap-3 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-slate-500">Платформа</dt>
+          <dt className="text-slate-500">Площадка</dt>
           <dd className="mt-1 text-slate-100">{source.platform}</dd>
         </div>
         <div>
