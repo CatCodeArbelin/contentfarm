@@ -510,6 +510,7 @@ export function useGenerateNewsEvent(
     mutationFn: api.generateNewsEvent,
     onSuccess: (...args) => {
       void queryClient.invalidateQueries({ queryKey: ["variants"] });
+      void queryClient.invalidateQueries({ queryKey: ["news-events"] });
       options?.onSuccess?.(...args);
     },
   });
