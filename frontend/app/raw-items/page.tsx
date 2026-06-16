@@ -38,6 +38,30 @@ function statusText(status: ApiStatus) {
   return statusOptions.find((item) => item.value === status)?.label ?? status;
 }
 
+function isVisibleCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function deduplicateSummaryParts(data: {
+  processed?: number;
+  created?: number;
+  linked?: number;
+  already_linked?: number;
+}) {
+  return [
+    isVisibleCount(data.processed)
+      ? `Обработано материалов: ${data.processed}`
+      : null,
+    isVisibleCount(data.created)
+      ? `Создано инфоповодов: ${data.created}`
+      : null,
+    isVisibleCount(data.linked) ? `Связано материалов: ${data.linked}` : null,
+    isVisibleCount(data.already_linked)
+      ? `Уже было связано: ${data.already_linked}`
+      : null,
+  ].filter(Boolean) as string[];
+}
+
 function SelectFilter({
   label,
   value,
@@ -140,12 +164,17 @@ export default function RawItemsPage() {
   );
   const rawItemsQuery = useGetRawItems(filters);
   const deduplicate = useDeduplicate({
-    onSuccess: (data) =>
+    onSuccess: (data) => {
+      const summary = deduplicateSummaryParts(data);
       showToast({
         title: "Дедупликация завершена",
-        description: `Обработано: ${data.processed}. Создано событий: ${data.created}. Связано: ${data.linked}.`,
+        description:
+          summary.length > 0
+            ? summary.join(". ")
+            : "Операция завершена, список материалов и инфоповодов обновлён.",
         kind: "success",
-      }),
+      });
+    },
     onError: (error) =>
       showToast({
         title: "Не удалось выполнить дедупликацию",
@@ -179,9 +208,9 @@ export default function RawItemsPage() {
     (item) => item.status === "pending",
   ).length;
   const canDeduplicate = pendingCount > 0;
-  const deduplicateReason = canDeduplicate
-    ? `Действие доступно: ${pendingCount} ожидающих материалов будут проверены на дубли.`
-    : "Нет материалов в статусе «Ожидает», поэтому дедупликацию запускать нечего.";
+  const deduplicateResultParts = deduplicate.data
+    ? deduplicateSummaryParts(deduplicate.data)
+    : [];
 
   return (
     <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
@@ -201,9 +230,9 @@ export default function RawItemsPage() {
             <div className="space-y-2 lg:max-w-md">
               <ActionButton
                 variant="primary"
-                disabled={!canDeduplicate}
+                disabled={!canDeduplicate || deduplicate.isPending}
                 isLoading={deduplicate.isPending}
-                loadingText="Дедуплицируем…"
+                loadingText="Выполняется дедупликация…"
                 onClick={() => {
                   showToast({
                     title: "Выполняется…",
@@ -216,16 +245,29 @@ export default function RawItemsPage() {
               >
                 Дедуплицировать ожидающие
               </ActionButton>
-              <InlineNotice tone={canDeduplicate ? "info" : "warning"}>
-                {deduplicateReason}
-              </InlineNotice>
+              {canDeduplicate ? (
+                <InlineNotice tone="info">
+                  Действие доступно: {pendingCount} ожидающих материалов будут
+                  проверены на дубли.
+                </InlineNotice>
+              ) : (
+                <InlineNotice tone="warning">
+                  <p>Нет ожидающих сырых материалов для дедупликации</p>
+                  <Link
+                    href="/sources"
+                    className="mt-2 inline-flex font-semibold text-amber-50 underline decoration-amber-200/50 underline-offset-4 hover:text-white"
+                  >
+                    Собрать RSS
+                  </Link>
+                </InlineNotice>
+              )}
             </div>
           </div>
           {deduplicate.isPending && (
             <div className="mt-4">
               <InlineNotice tone="info">
-                Дедупликация выполняется. После завершения обновятся сырые
-                материалы и инфоповоды.
+                Выполняется дедупликация… Ищем дубли, создаём инфоповоды и
+                связываем с ними сырые материалы.
               </InlineNotice>
             </div>
           )}
@@ -233,7 +275,28 @@ export default function RawItemsPage() {
             <div className="mt-4">
               <OperationResult
                 title="Дедупликация завершена"
-                summary={`Обработано: ${deduplicate.data.processed}. Создано инфоповодов: ${deduplicate.data.created}. Связано материалов: ${deduplicate.data.linked}. Список материалов и инфоповодов обновлён.`}
+                summary={
+                  <div className="space-y-3">
+                    {deduplicateResultParts.length > 0 ? (
+                      <ul className="list-inside list-disc space-y-1">
+                        {deduplicateResultParts.map((part) => (
+                          <li key={part}>{part}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        Операция завершена, список материалов и инфоповодов
+                        обновлён.
+                      </p>
+                    )}
+                    <Link
+                      href="/news-events"
+                      className="inline-flex font-semibold text-emerald-50 underline decoration-emerald-200/50 underline-offset-4 hover:text-white"
+                    >
+                      Открыть инфоповоды
+                    </Link>
+                  </div>
+                }
               />
             </div>
           )}

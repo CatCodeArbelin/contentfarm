@@ -124,13 +124,13 @@ export type NewsEvent = {
 };
 
 export type DeduplicateResponse = {
-  processed: number;
-  created: number;
-  linked: number;
-  already_linked: number;
-  news_event_ids: number[];
-  source_link_ids: number[];
-  items: Array<{
+  processed?: number;
+  created?: number;
+  linked?: number;
+  already_linked?: number;
+  news_event_ids?: number[];
+  source_link_ids?: number[];
+  items?: Array<{
     news_event_id: number;
     source_link_id: number;
     created: boolean;
