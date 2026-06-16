@@ -18,6 +18,7 @@ import {
 } from "../../components/action-ui";
 import { useToast } from "../../components/toast-provider";
 import { addActionLogEntry } from "../../src/lib/action-log";
+import { riskLevelText, statusText } from "../../src/lib/ui-labels";
 
 function formatScore(score: number) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(
@@ -25,14 +26,6 @@ function formatScore(score: number) {
   );
 }
 
-function riskLevelText(riskLevel?: string | null) {
-  const labels: Record<string, string> = {
-    low: "Низкий",
-    medium: "Средний",
-    high: "Высокий",
-  };
-  return labels[riskLevel ?? ""] ?? (riskLevel || "Не указан");
-}
 
 function sourceUrlText(sourceUrl?: string | null) {
   return sourceUrl || "Источник не указан";
@@ -147,7 +140,7 @@ function NewsEventCard({
     ? `Для этого инфоповода уже есть варианты: ${existingVariants.length}. Площадки: ${formatPlatforms(existingPlatforms)}.`
     : canGenerate
       ? "Действие доступно: будет создан набор вариантов для модерации."
-      : `Генерация недоступна: статус «${event.status}» или нет текста инфоповода.`;
+      : `Генерация недоступна: статус «${statusText(event.status)}» или нет текста инфоповода.`;
 
   return (
     <article className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-slate-950/30">
@@ -208,13 +201,13 @@ function NewsEventCard({
 
       <dl className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-          <dt className="text-xs text-slate-500">Оценка</dt>
+          <dt className="text-xs text-slate-500">Оценка интереса</dt>
           <dd className="mt-1 font-semibold text-slate-100">
             {formatScore(event.score)}
           </dd>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-          <dt className="text-xs text-slate-500">Уровень риска</dt>
+          <dt className="text-xs text-slate-500">Риск</dt>
           <dd className="mt-1 font-semibold text-slate-100">
             {riskLevelText(event.risk_level)}
           </dd>

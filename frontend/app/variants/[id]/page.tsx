@@ -20,6 +20,7 @@ import {
   InlineNotice,
   OperationResult,
 } from "../../../components/action-ui";
+import { riskLevelText, statusText as ruStatusText } from "../../../src/lib/ui-labels";
 
 const statusLabels: Partial<Record<ApiStatus, string>> = {
   draft: "Черновик",
@@ -30,7 +31,7 @@ const statusLabels: Partial<Record<ApiStatus, string>> = {
   failed: "Ошибка",
 };
 function statusText(status?: ApiStatus) {
-  return status ? (statusLabels[status] ?? status) : "Неизвестно";
+  return status ? (statusLabels[status] ?? ruStatusText(status)) : "Неизвестно";
 }
 function formatDate(value?: string | null) {
   if (!value) return "Не указано";
@@ -59,12 +60,12 @@ function MetadataPanel({ variant }: { variant: Variant }) {
     ["ID генерации", variant.generation_id],
     ["ID промпта", variant.prompt_id ?? "—"],
     ["Версия промпта", variant.prompt_version ?? "—"],
-    ["Платформа", variant.platform],
+    ["Площадка", variant.platform],
     ["Стратегия", variant.strategy],
     ["Язык", variant.language],
     ["Тема", variant.topic ?? "—"],
-    ["Риск", variant.risk_level ?? "—"],
-    ["Оценка", variant.score ?? "—"],
+    ["Риск", riskLevelText(variant.risk_level)],
+    ["Оценка интереса", variant.score ?? "—"],
     ["Создан", formatDate(variant.created_at)],
     ["Обновлён", formatDate(variant.updated_at)],
     ["Одобрил", variant.approved_by ?? "—"],
@@ -226,7 +227,7 @@ export default function VariantDetailPage() {
     onSuccess: (data) => {
       addActionLogEntry({
         action: "Публикация экспортирована",
-        result: `Создана публикация #${data.id}. Message ID: ${data.message_id || "не указан"}.`,
+        result: `Создана публикация #${data.id}. ID сообщения: ${data.message_id || "не указан"}.`,
         href: "/publications",
         linkLabel: "Проверить публикации",
         tone: "success",
@@ -414,7 +415,7 @@ export default function VariantDetailPage() {
             <div className="mt-4">
               <OperationResult
                 title="Экспорт завершён"
-                summary={`Создана запись публикации #${exportVariant.data.id}. Путь экспорта: ${exportVariant.data.export_path || "не указан"}. Данные обновлены.`}
+                summary={`Создана запись публикации #${exportVariant.data.id}. Путь к файлу: ${exportVariant.data.export_path || "не указан"}. Данные обновлены.`}
               />
             </div>
           )}
@@ -422,7 +423,7 @@ export default function VariantDetailPage() {
             <div className="mt-4">
               <OperationResult
                 title="Публикация завершена"
-                summary={`Создана публикация #${publishTelegram.data.id}. Message ID: ${publishTelegram.data.message_id || "не указан"}. Данные обновлены.`}
+                summary={`Создана публикация #${publishTelegram.data.id}. ID сообщения: ${publishTelegram.data.message_id || "не указан"}. Данные обновлены.`}
               />
             </div>
           )}
@@ -450,7 +451,7 @@ export default function VariantDetailPage() {
                     {variant.lead || "Лид не указан"}
                   </p>
                   <div className="mt-5 whitespace-pre-wrap text-slate-200">
-                    {variant.body || "Текст body не указан"}
+                    {variant.body || "Основной текст не указан"}
                   </div>
                 </article>
               </Panel>

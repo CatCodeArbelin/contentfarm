@@ -13,6 +13,7 @@ import {
   type Publication,
 } from "../../src/lib/api";
 
+import { statusText as ruStatusText } from "../../src/lib/ui-labels";
 const statusOptions: Array<{ value: ApiStatus | ""; label: string }> = [
   { value: "", label: "Все статусы" },
   { value: "draft", label: "Черновик" },
@@ -33,7 +34,7 @@ const statusPalette: Partial<Record<ApiStatus, string>> = {
 };
 
 function statusText(status: ApiStatus) {
-  return statusOptions.find((item) => item.value === status)?.label ?? status;
+  return statusOptions.find((item) => item.value === status)?.label ?? ruStatusText(status);
 }
 
 function formatDate(value?: string | null) {
@@ -72,7 +73,7 @@ function ErrorDetails({ error }: { error?: string | null }) {
   return (
     <div className="rounded-2xl border border-rose-300/40 bg-rose-500/15 p-4 text-rose-100 shadow-lg shadow-rose-950/20">
       <p className="text-sm font-bold text-rose-100">Публикация не завершилась</p>
-      <p className="mt-1 text-sm text-rose-100/85">Backend вернул ошибку. Проверьте настройки площадки или повторите действие после исправления причины.</p>
+      <p className="mt-1 text-sm text-rose-100/85">Сервер вернул ошибку. Проверьте настройки площадки или повторите действие после исправления причины.</p>
       <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-slate-950/50 p-3 text-sm leading-6 text-rose-50">{error}</p>
     </div>
   );
@@ -114,7 +115,7 @@ function MeaningBlock({ publication }: { publication: Publication }) {
   const isTelegram = publication.platform?.toLowerCase() === "telegram";
   const hasExport = Boolean(publication.export_path);
   if (publication.status === "failed") return <InlineNotice tone="error">Публикация не завершилась: материал не был успешно отправлен или сохранён. Подробности ошибки показаны ниже.</InlineNotice>;
-  if (isTelegram && publication.status === "published") return <InlineNotice tone="success">Материал отправлен в Telegram{publication.message_id ? `, message_id: ${publication.message_id}` : ""}.</InlineNotice>;
+  if (isTelegram && publication.status === "published") return <InlineNotice tone="success">Материал отправлен в Telegram{publication.message_id ? `, ID сообщения: ${publication.message_id}` : ""}.</InlineNotice>;
   if (hasExport) return <InlineNotice tone="success">Материал сохранён в файл. Путь можно скопировать или открыть, если браузеру доступен этот адрес.</InlineNotice>;
   return <InlineNotice tone="info">Запись показывает текущий этап публикации или экспорта. Когда файл будет готов, здесь появится путь.</InlineNotice>;
 }

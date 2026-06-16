@@ -94,7 +94,7 @@ export default function PipelinePage() {
             <div className="rounded-3xl border border-cyan-300/30 bg-cyan-300/10 p-5"><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-100">текущий следующий шаг</p><p className="mt-2 text-2xl font-black text-white">{steps.indexOf(next) + 1}. {next.title}</p><p className="mt-2 text-sm leading-6 text-cyan-50/80">{next.hint}</p><Link href={next.href} className="mt-4 inline-flex w-full justify-center rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200">{next.action}</Link></div>
           </div>
         </header>
-        {isLoading && <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 text-slate-300">Загружаем рабочий конвейер из backend…</div>}
+        {isLoading && <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 text-slate-300">Загружаем рабочий конвейер с сервера…</div>}
         {error && <div className="rounded-3xl border border-rose-300/30 bg-rose-400/10 p-5 text-rose-100">Не удалось загрузить часть данных: {getRussianErrorMessage(error)}</div>}
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[['источников', sourceCount], ['сырых материалов', rawCount], ['вариантов текста', variantCount], ['опубликовано', publishedCount]].map(([label, value]) => <div key={label} className="rounded-3xl border border-white/10 bg-white/[0.06] p-5"><p className="text-3xl font-black text-white">{num(value as number)}</p><p className="mt-2 text-sm text-slate-400">{label}</p></div>)}

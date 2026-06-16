@@ -10,6 +10,7 @@ import {
   type Variant,
 } from "../../src/lib/api";
 
+import { statusText as ruStatusText } from "../../src/lib/ui-labels";
 const statusOptions: Array<{ value: ApiStatus | ""; label: string }> = [
   { value: "", label: "Все статусы" },
   { value: "draft", label: "Черновик" },
@@ -21,7 +22,7 @@ const statusOptions: Array<{ value: ApiStatus | ""; label: string }> = [
 ];
 
 function statusText(status: ApiStatus) {
-  return statusOptions.find((item) => item.value === status)?.label ?? status;
+  return statusOptions.find((item) => item.value === status)?.label ?? ruStatusText(status);
 }
 
 function formatDate(value?: string | null) {
@@ -98,7 +99,7 @@ function VariantRow({ variant }: { variant: Variant }) {
         </p>
       </div>
       <div className="text-sm">
-        <p className="text-slate-500">Платформа</p>
+        <p className="text-slate-500">Площадка</p>
         <p className="mt-1 font-medium text-slate-100">{variant.platform}</p>
       </div>
       <div className="text-sm">
@@ -163,7 +164,7 @@ export default function VariantsPage() {
             ← На дашборд
           </Link>
           <h1 className="mt-3 text-3xl font-bold text-white">
-            Сгенерированные варианты
+            Черновики и варианты
           </h1>
           <p className="mt-2 text-slate-400">
             Список с гибридным card/table представлением и фильтрами модерации.
@@ -185,7 +186,7 @@ export default function VariantsPage() {
             </select>
           </label>
           <SelectFilter
-            label="Платформа"
+            label="Площадка"
             value={platform}
             onChange={setPlatform}
             options={platforms}
@@ -199,12 +200,12 @@ export default function VariantsPage() {
         </section>
         {variantsQuery.isLoading && (
           <div className="rounded-3xl border border-white/10 bg-slate-900 p-5 text-slate-300">
-            Загружаем варианты…
+            Загружаем черновики…
           </div>
         )}
         {variantsQuery.error && (
           <div className="rounded-3xl border border-rose-300/30 bg-rose-400/10 p-5 text-rose-100">
-            Не удалось загрузить варианты:{" "}
+            Не удалось загрузить черновики:{" "}
             {getRussianErrorMessage(variantsQuery.error)}
           </div>
         )}
@@ -214,7 +215,7 @@ export default function VariantsPage() {
           ))}
           {!variantsQuery.isLoading && variants.length === 0 && (
             <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center text-slate-400">
-              По выбранным фильтрам вариантов нет.
+              По выбранным фильтрам черновиков нет.
             </div>
           )}
         </section>

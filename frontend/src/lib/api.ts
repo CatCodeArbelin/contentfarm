@@ -18,6 +18,7 @@ export type ApiStatus =
   | "approved"
   | "rejected"
   | "scheduled"
+  | "exported"
   | "published"
   | "failed"
   | "archived";

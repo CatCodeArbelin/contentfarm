@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const envRows = useMemo(
     () => [
       { label: "Режим сборки", value: nodeEnv },
-      { label: "Backend API", value: apiBaseUrl },
+      { label: "Сервер API", value: apiBaseUrl },
       { label: "Frontend URL", value: frontendUrl },
       { label: "n8n URL", value: configuredN8nUrl },
     ],
@@ -64,15 +64,15 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm text-cyan-200">Системная информация</p>
               <h1 className="mt-2 text-3xl font-bold text-white">Настройки</h1>
-              <p className="mt-2 max-w-3xl text-slate-400">Проверка подключений и публичных адресов без сырого JSON: все ответы backend переведены в понятные статусы.</p>
+              <p className="mt-2 max-w-3xl text-slate-400">Проверка подключений и публичных адресов без сырого JSON: все ответы сервера переведены в понятные статусы.</p>
             </div>
-            <span className={`rounded-full border px-4 py-2 text-sm font-medium ${healthTone}`}>Backend: {health.isLoading ? "проверяем…" : health.isError ? "недоступен" : statusLabel(health.data?.status)}</span>
+            <span className={`rounded-full border px-4 py-2 text-sm font-medium ${healthTone}`}>Сервер: {health.isLoading ? "проверяем…" : health.isError ? "недоступен" : statusLabel(health.data?.status)}</span>
           </div>
         </header>
 
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SettingCard title="API base URL" value={apiBaseUrl} description="Адрес используется frontend для запросов к FastAPI." />
-          <SettingCard title="Backend health" value={health.isError ? getRussianErrorMessage(health.error) : statusLabel(health.data?.status)} description="Проверяется через /health и обновляется каждые 30 секунд." />
+          <SettingCard title="Сервер health" value={health.isError ? getRussianErrorMessage(health.error) : statusLabel(health.data?.status)} description="Проверяется через /health и обновляется каждые 30 секунд." />
           <SettingCard title="Frontend" value={frontendUrl} description="Публичный адрес интерфейса из окружения или текущего окна браузера." />
           <SettingCard title="n8n" value={configuredN8nUrl} description="Ссылка на локальную панель автоматизаций и webhook-сценариев." />
         </section>
@@ -92,7 +92,7 @@ export default function SettingsPage() {
         <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-white">Быстрые ссылки</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <ServiceLink href={docsUrl} title="FastAPI docs" description="Интерактивная документация backend API." />
+            <ServiceLink href={docsUrl} title="FastAPI docs" description="Интерактивная документация сервера API." />
             <ServiceLink href={configuredN8nUrl} title="n8n" description="Автоматизации, webhook-и и интеграционные сценарии." />
             <ServiceLink href={frontendUrl} title="Frontend" description="Открыть пользовательский интерфейс Contentfarm." />
           </div>

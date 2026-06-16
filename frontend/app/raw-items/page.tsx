@@ -18,6 +18,7 @@ import {
   OperationResult,
 } from "../../components/action-ui";
 
+import { statusText as ruStatusText } from "../../src/lib/ui-labels";
 const statusOptions: Array<{ value: ApiStatus | ""; label: string }> = [
   { value: "", label: "Все статусы" },
   { value: "pending", label: "Ожидает" },
@@ -36,7 +37,7 @@ function formatDate(value?: string | null) {
 }
 
 function statusText(status: ApiStatus) {
-  return statusOptions.find((item) => item.value === status)?.label ?? status;
+  return statusOptions.find((item) => item.value === status)?.label ?? ruStatusText(status);
 }
 
 function isVisibleCount(value: unknown): value is number {
@@ -122,7 +123,7 @@ function RawItemCard({ item }: { item: RawItem }) {
         </div>
         <div className="grid gap-3 text-sm sm:grid-cols-2 xl:w-80">
           <div>
-            <p className="text-slate-500">Платформа</p>
+            <p className="text-slate-500">Площадка</p>
             <p className="mt-1 text-slate-100">
               {item.platform || "Не указана"}
             </p>
@@ -343,7 +344,7 @@ export default function RawItemsPage() {
             </select>
           </label>
           <SelectFilter
-            label="Платформа"
+            label="Площадка"
             value={platform}
             onChange={setPlatform}
             options={platforms}
