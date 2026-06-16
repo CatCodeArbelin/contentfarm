@@ -17,6 +17,7 @@ import {
   OperationResult,
 } from "../../components/action-ui";
 import { useToast } from "../../components/toast-provider";
+import { addActionLogEntry } from "../../src/lib/action-log";
 
 function formatScore(score: number) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(
@@ -104,18 +105,33 @@ function NewsEventCard({
         count: data.generated_variants.length,
         platforms,
       });
+      addActionLogEntry({
+        action: "Сгенерированы варианты",
+        result: `Создано вариантов: ${data.generated_variants.length}. Площадки: ${formatPlatforms(platforms)}.`,
+        href: "/variants",
+        linkLabel: "Открыть варианты",
+        tone: "success",
+      });
       showToast({
         title: "Генерация завершена",
         description: `Создано вариантов: ${data.generated_variants.length}. Площадки: ${formatPlatforms(platforms)}.`,
         kind: "success",
       });
     },
-    onError: (error) =>
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Генерация вариантов",
+        result: `Ошибка: ${getRussianErrorMessage(error)}`,
+        href: "/news-events",
+        linkLabel: "Открыть инфоповоды",
+        tone: "error",
+      });
       showToast({
         title: "Не удалось сгенерировать варианты",
         description: getRussianErrorMessage(error),
         kind: "error",
-      }),
+      });
+    },
   });
   const existingVariants = variants.filter(
     (variant) => variant.generation_id === event.id,
