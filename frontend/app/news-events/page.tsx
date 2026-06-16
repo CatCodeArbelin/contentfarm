@@ -6,7 +6,10 @@ import {
   getRussianErrorMessage,
   useGenerateNewsEvent,
   useGetNewsEvents,
+  useGetVariants,
+  type GenerateResponse,
   type NewsEvent,
+  type Variant,
 } from "../../src/lib/api";
 import {
   ActionButton,
@@ -34,16 +37,76 @@ function sourceUrlText(sourceUrl?: string | null) {
   return sourceUrl || "Источник не указан";
 }
 
-function NewsEventCard({ event }: { event: NewsEvent }) {
+function formatPlatforms(platforms: string[]) {
+  if (platforms.length === 0) {
+    return "площадки не указаны";
+  }
+  return platforms.join(", ");
+}
+
+function platformsFromVariants(variants: Array<Pick<Variant, "platform">>) {
+  return Array.from(
+    new Set(
+      variants
+        .map((variant) => variant.platform)
+        .filter((platform) => platform.trim().length > 0),
+    ),
+  );
+}
+
+function ollamaErrorDetails(error: unknown) {
+  const message = getRussianErrorMessage(error);
+  return message ? `Технические детали: ${message}` : null;
+}
+
+function GenerationResultBlock({
+  count,
+  platforms,
+}: {
+  count: number;
+  platforms: string[];
+}) {
+  return (
+    <OperationResult
+      title="Варианты готовы"
+      summary={
+        <>
+          Создано вариантов: {count}. Площадки: {formatPlatforms(platforms)}.{" "}
+          <Link
+            className="font-semibold underline underline-offset-4"
+            href="/variants"
+          >
+            Открыть варианты
+          </Link>
+          .
+        </>
+      }
+    />
+  );
+}
+
+function NewsEventCard({
+  event,
+  variants,
+}: {
+  event: NewsEvent;
+  variants: Variant[];
+}) {
   const { showToast } = useToast();
-  const [successVariantIds, setSuccessVariantIds] = useState<number[]>([]);
+  const [generatedResult, setGeneratedResult] = useState<{
+    count: number;
+    platforms: string[];
+  } | null>(null);
   const generateMutation = useGenerateNewsEvent({
-    onSuccess: (data) => {
-      const ids = data.generated_variants.map((variant) => variant.id);
-      setSuccessVariantIds(ids);
+    onSuccess: (data: GenerateResponse) => {
+      const platforms = platformsFromVariants(data.generated_variants);
+      setGeneratedResult({
+        count: data.generated_variants.length,
+        platforms,
+      });
       showToast({
         title: "Генерация завершена",
-        description: `Создано вариантов: ${ids.length}.`,
+        description: `Создано вариантов: ${data.generated_variants.length}. Площадки: ${formatPlatforms(platforms)}.`,
         kind: "success",
       });
     },
@@ -54,14 +117,21 @@ function NewsEventCard({ event }: { event: NewsEvent }) {
         kind: "error",
       }),
   });
+  const existingVariants = variants.filter(
+    (variant) => variant.generation_id === event.id,
+  );
+  const existingPlatforms = platformsFromVariants(existingVariants);
+  const hasExistingVariants = existingVariants.length > 0;
   const isGenerating = generateMutation.isPending;
   const canGenerate =
     event.status !== "archived" &&
     event.status !== "failed" &&
     Boolean(event.title?.trim() || event.summary?.trim());
-  const generateReason = canGenerate
-    ? "Действие доступно: будет создан набор вариантов для модерации."
-    : `Генерация недоступна: статус «${event.status}» или нет текста инфоповода.`;
+  const generateReason = hasExistingVariants
+    ? `Для этого инфоповода уже есть варианты: ${existingVariants.length}. Площадки: ${formatPlatforms(existingPlatforms)}.`
+    : canGenerate
+      ? "Действие доступно: будет создан набор вариантов для модерации."
+      : `Генерация недоступна: статус «${event.status}» или нет текста инфоповода.`;
 
   return (
     <article className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-slate-950/30">
@@ -78,23 +148,43 @@ function NewsEventCard({ event }: { event: NewsEvent }) {
           </p>
         </div>
         <div className="space-y-2 lg:max-w-sm">
-          <ActionButton
-            variant="primary"
-            disabled={!canGenerate}
-            isLoading={isGenerating}
-            loadingText="Генерируем…"
-            onClick={() => {
-              showToast({
-                title: "Выполняется…",
-                description: `Генерируем варианты для инфоповода #${event.id}.`,
-                kind: "loading",
-              });
-              generateMutation.mutate(event.id);
-            }}
+          {hasExistingVariants ? (
+            <Link
+              className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+              href="/variants"
+            >
+              Открыть варианты
+            </Link>
+          ) : (
+            <ActionButton
+              variant="primary"
+              disabled={!canGenerate || isGenerating}
+              isLoading={isGenerating}
+              loadingText="Генерируем варианты…"
+              onClick={() => {
+                if (generateMutation.isPending) {
+                  showToast({
+                    title: "Генерация уже выполняется",
+                    description: `Дождитесь завершения генерации для инфоповода #${event.id}.`,
+                    kind: "loading",
+                  });
+                  return;
+                }
+                setGeneratedResult(null);
+                showToast({
+                  title: "Генерируем варианты…",
+                  description: `Генерация началась для инфоповода #${event.id}.`,
+                  kind: "loading",
+                });
+                generateMutation.mutate(event.id);
+              }}
+            >
+              Сгенерировать варианты
+            </ActionButton>
+          )}
+          <InlineNotice
+            tone={hasExistingVariants || canGenerate ? "info" : "warning"}
           >
-            Сгенерировать
-          </ActionButton>
-          <InlineNotice tone={canGenerate ? "info" : "warning"}>
             {generateReason}
           </InlineNotice>
         </div>
@@ -141,41 +231,48 @@ function NewsEventCard({ event }: { event: NewsEvent }) {
       {isGenerating && (
         <div className="mt-4">
           <InlineNotice tone="info">
-            Идёт генерация вариантов. Кнопка отключена, изменения появятся после
-            завершения.
+            Генерируем варианты… Генерация уже выполняется, повторный запуск
+            недоступен.
           </InlineNotice>
         </div>
       )}
-      {generateMutation.isSuccess && (
+      {generatedResult && (
         <div className="mt-4">
-          <OperationResult
-            title="Генерация завершена"
-            summary={
-              <>
-                Создано вариантов: {successVariantIds.length}. Список вариантов
-                обновлён.{" "}
-                <Link
-                  className="font-semibold underline underline-offset-4"
-                  href={
-                    successVariantIds.length === 1
-                      ? `/variants/${successVariantIds[0]}`
-                      : "/variants"
-                  }
-                >
-                  Перейти к вариантам
-                </Link>
-                .
-              </>
-            }
+          <GenerationResultBlock
+            count={generatedResult.count}
+            platforms={generatedResult.platforms}
+          />
+        </div>
+      )}
+      {hasExistingVariants && !generatedResult && (
+        <div className="mt-4">
+          <GenerationResultBlock
+            count={existingVariants.length}
+            platforms={existingPlatforms}
           />
         </div>
       )}
       {generateMutation.isError && (
         <div className="mt-4">
-          <InlineNotice tone="error">
-            Не удалось сгенерировать варианты:{" "}
-            {getRussianErrorMessage(generateMutation.error)}
-          </InlineNotice>
+          <OperationResult
+            tone="error"
+            title="Не удалось сгенерировать варианты"
+            summary={
+              <>
+                <p>Проверьте, что Ollama запущена и модель доступна.</p>
+                {ollamaErrorDetails(generateMutation.error) && (
+                  <details className="mt-2 text-rose-100/80">
+                    <summary className="cursor-pointer font-semibold">
+                      Технические детали
+                    </summary>
+                    <p className="mt-1">
+                      {ollamaErrorDetails(generateMutation.error)}
+                    </p>
+                  </details>
+                )}
+              </>
+            }
+          />
         </div>
       )}
     </article>
@@ -190,6 +287,8 @@ export default function NewsEventsPage() {
     sort_order: "desc",
   });
   const events = newsEventsQuery.data?.items ?? [];
+  const variantsQuery = useGetVariants({ limit: 200, offset: 0 });
+  const variants = variantsQuery.data?.items ?? [];
 
   return (
     <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
@@ -219,7 +318,7 @@ export default function NewsEventsPage() {
 
         <section className="space-y-4">
           {events.map((event) => (
-            <NewsEventCard key={event.id} event={event} />
+            <NewsEventCard key={event.id} event={event} variants={variants} />
           ))}
           {!newsEventsQuery.isLoading &&
             !newsEventsQuery.isError &&
