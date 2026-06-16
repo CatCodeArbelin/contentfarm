@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RecentActions } from "../../components/recent-actions";
 import { getRussianErrorMessage, useGetNewsEvents, useGetPublications, useGetRawItems, useGetSources, useGetVariants, type ApiStatus } from "../../src/lib/api";
 
 type Tone = "done" | "next" | "wait" | "warn";
@@ -98,6 +99,7 @@ export default function PipelinePage() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[['источников', sourceCount], ['сырых материалов', rawCount], ['вариантов текста', variantCount], ['опубликовано', publishedCount]].map(([label, value]) => <div key={label} className="rounded-3xl border border-white/10 bg-white/[0.06] p-5"><p className="text-3xl font-black text-white">{num(value as number)}</p><p className="mt-2 text-sm text-slate-400">{label}</p></div>)}
         </section>
+        <RecentActions />
         <section className="grid gap-5 xl:grid-cols-2">{steps.map((step, index) => <StepCard key={step.id} step={step} index={index} active={step.id === next.id} />)}</section>
       </div>
     </main>

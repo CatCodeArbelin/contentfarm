@@ -11,6 +11,7 @@ import {
   type Source,
 } from "../../src/lib/api";
 import { useToast } from "../../components/toast-provider";
+import { addActionLogEntry } from "../../src/lib/action-log";
 import {
   ActionButton,
   InlineNotice,
@@ -171,18 +172,34 @@ export default function SourcesPage() {
     null,
   );
   const collectRss = useCollectRss({
-    onSuccess: (data) =>
+    onSuccess: (data) => {
+      addActionLogEntry({
+        action: "Собран RSS",
+        result: `Получено: ${data.fetched ?? 0}. Создано материалов: ${data.created ?? 0}. Пропущено: ${data.skipped ?? 0}.`,
+        href: "/raw-items",
+        linkLabel: "Проверить сырьё",
+        tone: "success",
+      });
       showToast({
         title: "Сбор RSS завершён",
         description: `Получено: ${data.fetched ?? 0}. Создано новых материалов: ${data.created ?? 0}. Пропущено: ${data.skipped ?? 0}.`,
         kind: "success",
-      }),
-    onError: (error) =>
+      });
+    },
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Сбор RSS",
+        result: `Ошибка: ${getRussianErrorMessage(error)}`,
+        href: "/sources",
+        linkLabel: "Открыть источники",
+        tone: "error",
+      });
       showToast({
         title: "Не удалось собрать RSS",
         description: getRussianErrorMessage(error),
         kind: "error",
-      }),
+      });
+    },
     onSettled: () => setCollectingSourceId(null),
   });
   const sources = sourcesQuery.data?.items ?? [];

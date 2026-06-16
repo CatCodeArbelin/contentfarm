@@ -11,6 +11,7 @@ import {
   type RawItem,
 } from "../../src/lib/api";
 import { useToast } from "../../components/toast-provider";
+import { addActionLogEntry } from "../../src/lib/action-log";
 import {
   ActionButton,
   InlineNotice,
@@ -166,6 +167,13 @@ export default function RawItemsPage() {
   const deduplicate = useDeduplicate({
     onSuccess: (data) => {
       const summary = deduplicateSummaryParts(data);
+      addActionLogEntry({
+        action: `Дедуплицировано ${data.processed ?? 0} материалов`,
+        result: summary.length > 0 ? summary.join(". ") : "Операция завершена, инфоповоды обновлены.",
+        href: "/news-events",
+        linkLabel: "Проверить инфоповоды",
+        tone: "success",
+      });
       showToast({
         title: "Дедупликация завершена",
         description:
@@ -175,12 +183,20 @@ export default function RawItemsPage() {
         kind: "success",
       });
     },
-    onError: (error) =>
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Дедупликация материалов",
+        result: `Ошибка: ${getRussianErrorMessage(error)}`,
+        href: "/raw-items",
+        linkLabel: "Проверить сырьё",
+        tone: "error",
+      });
       showToast({
         title: "Не удалось выполнить дедупликацию",
         description: getRussianErrorMessage(error),
         kind: "error",
-      }),
+      });
+    },
   });
   const allItems = directoryQuery.data?.items ?? [];
   const rawItems = rawItemsQuery.data?.items ?? [];

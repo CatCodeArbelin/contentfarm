@@ -14,6 +14,7 @@ import {
   type Variant,
 } from "../../../src/lib/api";
 import { useToast } from "../../../components/toast-provider";
+import { addActionLogEntry } from "../../../src/lib/action-log";
 import {
   ActionButton,
   InlineNotice,
@@ -150,18 +151,34 @@ export default function VariantDetailPage() {
   const { showToast } = useToast();
   const variantQuery = useGetVariant(variantId);
   const approve = useApproveVariant({
-    onSuccess: (data) =>
+    onSuccess: (data) => {
+      addActionLogEntry({
+        action: "Вариант одобрен",
+        result: `Вариант #${data.id} переведён в статус «${statusText(data.status)}».`,
+        href: `/variants/${data.id}`,
+        linkLabel: "Открыть вариант",
+        tone: "success",
+      });
       showToast({
         title: "Вариант одобрен",
         description: `Статус варианта #${data.id} изменён на «${statusText(data.status)}».`,
         kind: "success",
-      }),
-    onError: (error) =>
+      });
+    },
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Одобрение варианта",
+        result: `Ошибка: ${getRussianErrorMessage(error)}`,
+        href: `/variants/${variantId}`,
+        linkLabel: "Открыть вариант",
+        tone: "error",
+      });
       showToast({
         title: "Не удалось одобрить вариант",
         description: getRussianErrorMessage(error),
         kind: "error",
-      }),
+      });
+    },
   });
   const reject = useRejectVariant({
     onSuccess: () =>
@@ -176,30 +193,62 @@ export default function VariantDetailPage() {
       }),
   });
   const exportVariant = useExportVariant({
-    onSuccess: (data) =>
+    onSuccess: (data) => {
+      addActionLogEntry({
+        action: "Публикация экспортирована",
+        result: `Создана публикация #${data.id}. Путь: ${data.export_path || "не указан"}.`,
+        href: "/publications",
+        linkLabel: "Проверить публикации",
+        tone: "success",
+      });
       showToast({
         title: "Экспорт выполнен",
         description: `Создана публикация #${data.id}. Файл: ${data.export_path || "путь не вернулся от API"}.`,
         kind: "success",
-      }),
-    onError: (error) =>
+      });
+    },
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Публикация завершилась ошибкой",
+        result: `Ошибка экспорта: ${getRussianErrorMessage(error)}`,
+        href: `/variants/${variantId}`,
+        linkLabel: "Вернуться к варианту",
+        tone: "error",
+      });
       showToast({
         title: "Не удалось экспортировать",
         description: getRussianErrorMessage(error),
         kind: "error",
-      }),
+      });
+    },
   });
   const publishTelegram = usePublishTelegram({
-    onSuccess: () =>
+    onSuccess: (data) => {
+      addActionLogEntry({
+        action: "Публикация экспортирована",
+        result: `Создана публикация #${data.id}. Message ID: ${data.message_id || "не указан"}.`,
+        href: "/publications",
+        linkLabel: "Проверить публикации",
+        tone: "success",
+      });
       showToast({
         title: "Отправлено в Telegram",
         description: "Публикации обновлены через TanStack Query.",
-      }),
-    onError: (error) =>
+      });
+    },
+    onError: (error) => {
+      addActionLogEntry({
+        action: "Публикация завершилась ошибкой",
+        result: `Ошибка публикации: ${getRussianErrorMessage(error)}`,
+        href: `/variants/${variantId}`,
+        linkLabel: "Вернуться к варианту",
+        tone: "error",
+      });
       showToast({
         title: "Ошибка публикации",
         description: getRussianErrorMessage(error),
-      }),
+      });
+    },
   });
   const variant = variantQuery.data;
   return (
