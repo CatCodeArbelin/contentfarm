@@ -14,6 +14,7 @@ import { useToast } from "../../components/toast-provider";
 import { addActionLogEntry } from "../../src/lib/action-log";
 import {
   ActionButton,
+  EmptyState,
   InlineNotice,
   OperationResult,
 } from "../../components/action-ui";
@@ -377,10 +378,43 @@ export default function RawItemsPage() {
           {rawItems.map((item) => (
             <RawItemCard key={item.id} item={item} />
           ))}
-          {!rawItemsQuery.isLoading && rawItems.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center text-slate-400">
-              По выбранным фильтрам сырых материалов нет.
-            </div>
+          {!rawItemsQuery.isLoading && !rawItemsQuery.error && rawItems.length === 0 && (
+            allItems.length === 0 ? (
+              <EmptyState
+                title="Соберите RSS"
+                description="Сырых материалов нет, потому что RSS ещё не собирали или источники не вернули новые записи. Перейдите к источникам, выберите активную ленту и нажмите кнопку «Собрать RSS»."
+                primaryAction={
+                  <Link
+                    href="/sources"
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Собрать RSS
+                  </Link>
+                }
+                secondaryAction={
+                  <Link
+                    href="/sources"
+                    className="text-sm font-semibold text-cyan-100 underline decoration-cyan-200/40 underline-offset-4 hover:text-white"
+                  >
+                    Перейти к источникам
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="По фильтрам ничего не найдено"
+                description="Сырые материалы уже есть, но выбранные фильтры скрыли список. Измените статус, площадку, тему или язык, чтобы увидеть материалы и запустить дедупликацию."
+                primaryAction={
+                  <button
+                    type="button"
+                    onClick={() => { setStatus(""); setPlatform(""); setTopic(""); setLanguage(""); }}
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Сбросить фильтры
+                  </button>
+                }
+              />
+            )
           )}
         </section>
       </div>

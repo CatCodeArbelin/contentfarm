@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { EmptyState } from "../../components/action-ui";
 import {
   getRussianErrorMessage,
   useGetVariants,
@@ -213,10 +214,35 @@ export default function VariantsPage() {
           {variants.map((variant) => (
             <VariantRow key={variant.id} variant={variant} />
           ))}
-          {!variantsQuery.isLoading && variants.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center text-slate-400">
-              По выбранным фильтрам черновиков нет.
-            </div>
+          {!variantsQuery.isLoading && !variantsQuery.error && variants.length === 0 && (
+            allVariants.length === 0 ? (
+              <EmptyState
+                title="Сгенерируйте варианты из инфоповода"
+                description="Вариантов нет, потому что ни один инфоповод ещё не отправлен на генерацию. Перейдите к инфоповодам, выберите карточку и нажмите «Сгенерировать варианты»."
+                primaryAction={
+                  <Link
+                    href="/news-events"
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Перейти к инфоповодам
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="По фильтрам ничего не найдено"
+                description="Варианты уже есть, но текущие фильтры скрыли список. Измените статус, площадку или тему, чтобы открыть нужные карточки для модерации."
+                primaryAction={
+                  <button
+                    type="button"
+                    onClick={() => { setStatus(""); setPlatform(""); setTopic(""); }}
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Сбросить фильтры
+                  </button>
+                }
+              />
+            )
           )}
         </section>
       </div>

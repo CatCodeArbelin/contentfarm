@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { InlineNotice } from "../../components/action-ui";
+import { EmptyState, InlineNotice } from "../../components/action-ui";
 import { useToast } from "../../components/toast-provider";
 import {
   getRussianErrorMessage,
@@ -178,7 +178,36 @@ export default function PublicationsPage() {
         {publicationsQuery.error && <div className="rounded-3xl border border-rose-300/30 bg-rose-400/10 p-5 text-rose-100">Не удалось загрузить публикации: {getRussianErrorMessage(publicationsQuery.error)}</div>}
         <section className="space-y-3">
           {publications.map((publication) => <PublicationCard key={publication.id} publication={publication} variantTitle={variantTitles.get(publication.variant_id)} />)}
-          {!publicationsQuery.isLoading && !publicationsQuery.error && publications.length === 0 && <div className="rounded-3xl border border-dashed border-white/15 bg-slate-900/60 p-10 text-center"><p className="text-xl font-semibold text-white">Публикаций пока нет</p><p className="mt-2 text-slate-400">После экспорта или отправки материалов записи появятся здесь. Попробуйте изменить фильтры, если ожидаете увидеть существующие публикации.</p></div>}
+          {!publicationsQuery.isLoading && !publicationsQuery.error && publications.length === 0 && (
+            allPublications.length === 0 ? (
+              <EmptyState
+                title="Одобрите вариант и экспортируйте"
+                description="Публикаций нет, потому что ни один вариант ещё не был экспортирован или отправлен. Перейдите к вариантам, откройте подходящий материал, одобрите его и нажмите кнопку экспорта или публикации."
+                primaryAction={
+                  <Link
+                    href="/variants"
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Перейти к вариантам
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="По фильтрам ничего не найдено"
+                description="Публикации уже есть, но текущие фильтры скрыли список. Измените статус или площадку, чтобы увидеть экспортированные материалы."
+                primaryAction={
+                  <button
+                    type="button"
+                    onClick={() => { setStatus(""); setPlatform(""); }}
+                    className="inline-flex items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                  >
+                    Сбросить фильтры
+                  </button>
+                }
+              />
+            )
+          )}
         </section>
       </div>
     </main>

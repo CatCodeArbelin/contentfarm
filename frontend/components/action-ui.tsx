@@ -55,3 +55,31 @@ export function OperationResult({ tone = "success", title, summary }: { tone?: k
     </InlineNotice>
   );
 }
+
+export function EmptyState({
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+}: {
+  title: string;
+  description: ReactNode;
+  primaryAction: ReactNode;
+  secondaryAction?: ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-dashed border-cyan-200/30 bg-gradient-to-br from-cyan-400/10 via-white/[0.06] to-slate-900/80 p-8 text-center shadow-2xl shadow-cyan-950/20">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-200/30 bg-cyan-300/15 text-2xl" aria-hidden="true">
+        →
+      </div>
+      <h2 className="mt-4 text-2xl font-bold text-white">{title}</h2>
+      <div className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+        {description}
+      </div>
+      <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        {primaryAction}
+        {secondaryAction}
+      </div>
+    </div>
+  );
+}
